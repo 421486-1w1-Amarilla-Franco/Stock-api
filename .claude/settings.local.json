@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn clean *)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "swagger-api"
+  ],
+  "enableAllProjectMcpServers": true
+}
