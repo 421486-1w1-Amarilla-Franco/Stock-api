@@ -10,6 +10,7 @@ public class MovimientoResponse {
     private Long id;
     private Long productoId;
     private String productoNombre;
+    private String productoCodigo;
     private Long usuarioId;
     private String usuarioNombre;
     private String tipo;

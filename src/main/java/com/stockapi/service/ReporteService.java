@@ -12,7 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,11 +32,16 @@ public class ReporteService {
 
         BigDecimal totalVentas = transaccionRepository.sumTotalByPeriodo(desdeDateTime, hastaDateTime);
         Long cantidadTransacciones = transaccionRepository.countByPeriodo(desdeDateTime, hastaDateTime);
-        List<Object[]> rawProductos = transaccionRepository.findProductosMasVendidos(desdeDateTime, hastaDateTime);
 
+        List<Object[]> rawProductos = transaccionRepository.findProductosMasVendidos(desdeDateTime, hastaDateTime);
         List<ProductoMasVendidoResponse> productosMasVendidos = rawProductos.stream()
-                .map(row -> new ProductoMasVendidoResponse((String) row[0], (Long) row[1]))
+                .map(row -> new ProductoMasVendidoResponse(
+                        (String) row[0],
+                        (Long) row[1],
+                        row[2] != null ? (BigDecimal) row[2] : BigDecimal.ZERO))
                 .collect(Collectors.toList());
+
+        List<BigDecimal> ventasDiarias = buildVentasDiarias(desde, hasta, desdeDateTime, hastaDateTime);
 
         ReporteVentasResponse reporte = new ReporteVentasResponse();
         ReporteVentasResponse.PeriodoInfo periodo = new ReporteVentasResponse.PeriodoInfo();
@@ -44,8 +51,28 @@ public class ReporteService {
         reporte.setTotalVentas(totalVentas != null ? totalVentas : BigDecimal.ZERO);
         reporte.setCantidadTransacciones(cantidadTransacciones != null ? cantidadTransacciones : 0L);
         reporte.setProductosMasVendidos(productosMasVendidos);
+        reporte.setVentasDiarias(ventasDiarias);
 
         return reporte;
+    }
+
+    private List<BigDecimal> buildVentasDiarias(LocalDate desde, LocalDate hasta,
+                                                 LocalDateTime desdeDateTime, LocalDateTime hastaDateTime) {
+        List<Object[]> raw = transaccionRepository.findVentasDiarias(desdeDateTime, hastaDateTime);
+
+        Map<LocalDate, BigDecimal> porDia = raw.stream()
+                .collect(Collectors.toMap(
+                        row -> ((java.sql.Date) row[0]).toLocalDate(),
+                        row -> row[1] != null ? new BigDecimal(row[1].toString()) : BigDecimal.ZERO
+                ));
+
+        List<BigDecimal> resultado = new ArrayList<>();
+        LocalDate cursor = desde;
+        while (!cursor.isAfter(hasta)) {
+            resultado.add(porDia.getOrDefault(cursor, BigDecimal.ZERO));
+            cursor = cursor.plusDays(1);
+        }
+        return resultado;
     }
 
     @Transactional(readOnly = true)

@@ -25,12 +25,21 @@ public interface TransaccionRepository extends JpaRepository<Transaccion, Long> 
     @Query("SELECT COUNT(t) FROM Transaccion t WHERE t.fecha BETWEEN :desde AND :hasta AND t.estado = 'COMPLETADA'")
     Long countByPeriodo(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
 
-    // Productos más vendidos en un período
-    @Query("SELECT d.producto.nombre, SUM(d.cantidad) as totalVendido " +
+    // Productos más vendidos en un período (con ingresos)
+    @Query("SELECT d.producto.nombre, SUM(d.cantidad) as totalVendido, SUM(d.subtotal) as totalIngresos " +
            "FROM DetalleVenta d " +
            "WHERE d.transaccion.fecha BETWEEN :desde AND :hasta " +
            "AND d.transaccion.estado = 'COMPLETADA' " +
            "GROUP BY d.producto.id, d.producto.nombre " +
            "ORDER BY totalVendido DESC")
     List<Object[]> findProductosMasVendidos(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
+
+    // Ventas diarias en un período (para el chart)
+    @Query(value = "SELECT CAST(fecha AS DATE) as dia, COALESCE(SUM(total), 0) as total " +
+                   "FROM transacciones " +
+                   "WHERE fecha BETWEEN :desde AND :hasta AND estado = 'COMPLETADA' " +
+                   "GROUP BY CAST(fecha AS DATE) " +
+                   "ORDER BY CAST(fecha AS DATE) ASC",
+           nativeQuery = true)
+    List<Object[]> findVentasDiarias(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
 }

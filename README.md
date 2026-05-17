@@ -16,7 +16,7 @@ API para gestionar stock de repuestos y lubricantes de un taller mecánico o sim
 
 - **Lenguaje:** Java 21
 - **Framework:** Spring Boot 3.2
-- **Base de datos:** SQL Server (via SQL Server Management Studio)
+- **Base de datos:** PostgreSQL
 - **ORM:** Spring Data JPA / Hibernate
 - **Autenticación:** Spring Security + JWT
 - **Documentación:** Swagger / OpenAPI (springdoc)
@@ -264,22 +264,24 @@ Códigos de error esperados:
 
 ---
 
-## Configuración de la base de datos
+## Configuración de la base de datos (PostgreSQL)
 
 El archivo `application.properties` debe contener:
 ```properties
-spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=stock_db;encrypt=false;trustServerCertificate=true
-spring.datasource.username=sa
-spring.datasource.password=TU_PASSWORD
-spring.datasource.driver-class-name=com.microsoft.sqlserver.jdbc.SQLServerDriver
+spring.datasource.url=${DB_URL:jdbc:postgresql://TU_HOST:5432/TU_DB?sslmode=require}
+spring.datasource.username=${DB_USERNAME:postgres}
+spring.datasource.password=${DB_PASSWORD:TU_PASSWORD}
+spring.datasource.driver-class-name=org.postgresql.Driver
 spring.jpa.hibernate.ddl-auto=update
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.SQLServerDialect
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 spring.jpa.show-sql=true
 jwt.secret=clave_secreta_larga_y_segura
 jwt.expiration=86400000
 server.port=8080
 springdoc.swagger-ui.path=/swagger-ui.html
 ```
+
+Para cloud PostgreSQL, define `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` en variables de entorno.
 
 ---
 

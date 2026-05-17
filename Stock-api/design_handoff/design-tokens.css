@@ -1,0 +1,133 @@
+/* =========================================================
+   Stock API · Design Tokens
+   Copiar como base de tu hoja de estilos global.
+   ========================================================= */
+
+:root[data-theme="light"] {
+  --bg:            #ffffff;
+  --bg-elev:       #ffffff;
+  --surface:       #fafafa;
+  --surface-2:     #f4f4f5;
+  --border:        #ececed;
+  --border-strong: #d4d4d8;
+  --text:          #09090b;
+  --text-2:        #3f3f46;
+  --muted:         #71717a;
+  --muted-strong:  #52525b;
+
+  --accent:        #2563eb;
+  --accent-2:      #1d4ed8;
+  --accent-soft:   #eff6ff;
+  --accent-text:   #ffffff;
+
+  --success:       #16a34a;
+  --success-soft:  #ecfdf5;
+  --warn:          #b45309;
+  --warn-soft:     #fef3c7;
+  --danger:        #dc2626;
+  --danger-soft:   #fee2e2;
+
+  --cat-rep:       #0e7490;
+  --cat-rep-soft:  #ecfeff;
+  --cat-lub:       #7c3aed;
+  --cat-lub-soft:  #f5f3ff;
+
+  --shadow-sm:  0 1px 2px rgba(15, 15, 20, 0.04);
+  --shadow-md:  0 4px 14px rgba(15, 15, 20, 0.06), 0 1px 2px rgba(15, 15, 20, 0.04);
+  --shadow-lg:  0 12px 36px rgba(15, 15, 20, 0.10), 0 2px 6px rgba(15, 15, 20, 0.06);
+}
+
+:root[data-theme="dark"] {
+  --bg:            #09090b;
+  --bg-elev:       #0c0c0e;
+  --surface:       #111114;
+  --surface-2:     #16161a;
+  --border:        #1d1d22;
+  --border-strong: #2a2a31;
+  --text:          #f4f4f5;
+  --text-2:        #d4d4d8;
+  --muted:         #8b8b94;
+  --muted-strong:  #a1a1aa;
+
+  --accent:        #3b82f6;
+  --accent-2:      #60a5fa;
+  --accent-soft:   rgba(59, 130, 246, 0.14);
+  --accent-text:   #ffffff;
+
+  --success:       #22c55e;
+  --success-soft:  rgba(34, 197, 94, 0.14);
+  --warn:          #eab308;
+  --warn-soft:     rgba(234, 179, 8, 0.14);
+  --danger:        #ef4444;
+  --danger-soft:   rgba(239, 68, 68, 0.14);
+
+  --cat-rep:       #22d3ee;
+  --cat-rep-soft:  rgba(34, 211, 238, 0.10);
+  --cat-lub:       #a78bfa;
+  --cat-lub-soft:  rgba(167, 139, 250, 0.12);
+
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md:  0 4px 14px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-lg:  0 12px 36px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* =========================================================
+   Tipografía
+   ========================================================= */
+/* Importar en index.html:
+   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+*/
+
+body {
+  font-family: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Escala tipográfica de referencia:
+   28px / 600 / -0.02em → page H1 + KPI values
+   18px / 600          → titulos de overlay
+   16px / 600          → títulos de drawer
+   15px / 600          → modal title
+   14px / 600          → card title
+   13.5px / 500        → tabs, body grande
+   13px                → body, table rows
+   12.5px / 500        → KPI labels, user name
+   12px                → card-sub, footer
+   11.5px              → muted text, timestamps
+   11px / 500 UPPER    → table headers, eyebrows
+   10–10.5px           → metadata, chart axis
+*/
+
+/* Mono: tabular-nums siempre en columnas numéricas
+   font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+*/
+
+/* =========================================================
+   Spacing scale (px)
+   4 6 8 10 12 14 16 18 24 28 32 64
+   ========================================================= */
+
+/* =========================================================
+   Border radius
+   4   chips, badges
+   6   botones pequeños, seg items, hover de tabs
+   8   inputs, botones, search box, icon-btn
+   10  meta pill, drawer cards interiores
+   12  cards principales, KPI cards
+   14  modal-card
+   999 user chip, delta pills, estado chips
+   ========================================================= */
+
+/* =========================================================
+   Transitions
+   .12s  hover de cards
+   .15s  hover general (border-color, bg, color, box-shadow)
+   .22s  fade de cambio de pantalla
+   .25s  drawer slide
+   .3s   barras de stock animadas
+   ========================================================= */

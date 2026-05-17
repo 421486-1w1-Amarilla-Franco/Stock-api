@@ -1,0 +1,25 @@
+# ── Maven build output ──────────────────────────────────────
+target/
+
+# ── IDE ─────────────────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+
+# ── Logs ────────────────────────────────────────────────────
+*.log
+
+# ── Secrets / config local ──────────────────────────────────
+*.env
+.env.local
+.env.*.local
+src/main/resources/application.properties
+
+# ── Frontend: Node / Vite ───────────────────────────────────
+Stock-api(front)/dashboard/node_modules/
+Stock-api(front)/dashboard/dist/
+Stock-api(front)/dashboard/.vite/
+
+# ── OS ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

@@ -25,9 +25,16 @@ public class ProductoController {
     private final ProductoService productoService;
 
     @GetMapping
-    @Operation(summary = "Listar todos los productos activos")
-    public ResponseEntity<List<ProductoResponse>> listarTodos() {
-        return ResponseEntity.ok(productoService.listarTodos());
+    @Operation(summary = "Listar productos (activos por defecto, incluirInactivos=true para todos)")
+    public ResponseEntity<List<ProductoResponse>> listarTodos(
+            @RequestParam(defaultValue = "false") boolean incluirInactivos) {
+        return ResponseEntity.ok(productoService.listarTodos(incluirInactivos));
+    }
+
+    @PostMapping("/{id}/restaurar")
+    @Operation(summary = "Reactivar producto dado de baja")
+    public ResponseEntity<ProductoResponse> restaurar(@PathVariable Long id) {
+        return ResponseEntity.ok(productoService.restaurar(id));
     }
 
     @GetMapping("/{id}")

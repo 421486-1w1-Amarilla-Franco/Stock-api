@@ -12,6 +12,7 @@ public class ReporteVentasResponse {
     private BigDecimal totalVentas;
     private Long cantidadTransacciones;
     private List<ProductoMasVendidoResponse> productosMasVendidos;
+    private List<BigDecimal> ventasDiarias;
 
     @Data
     public static class PeriodoInfo {

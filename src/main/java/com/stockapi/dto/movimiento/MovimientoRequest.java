@@ -1,7 +1,6 @@
 package com.stockapi.dto.movimiento;
 
 import com.stockapi.model.Movimiento;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -15,7 +14,6 @@ public class MovimientoRequest {
     private Movimiento.TipoMovimiento tipo;
 
     @NotNull
-    @Min(1)
     private Integer cantidad;
 
     private String nota;

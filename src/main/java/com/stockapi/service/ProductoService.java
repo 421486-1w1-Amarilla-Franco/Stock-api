@@ -20,10 +20,21 @@ public class ProductoService {
     private final ProductoRepository productoRepository;
 
     @Transactional(readOnly = true)
-    public List<ProductoResponse> listarTodos() {
-        return productoRepository.findByActivoTrue().stream()
+    public List<ProductoResponse> listarTodos(boolean incluirInactivos) {
+        List<Producto> productos = incluirInactivos
+                ? productoRepository.findAll()
+                : productoRepository.findByActivoTrue();
+        return productos.stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public ProductoResponse restaurar(Long id) {
+        Producto producto = productoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + id));
+        producto.setActivo(true);
+        return toResponse(productoRepository.save(producto));
     }
 
     @Transactional(readOnly = true)

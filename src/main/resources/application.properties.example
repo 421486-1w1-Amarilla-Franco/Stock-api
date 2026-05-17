@@ -1,0 +1,33 @@
+# ========================
+# Base de datos PostgreSQL
+# ========================
+spring.datasource.url=jdbc:postgresql://<HOST>:<PORT>/postgres?sslmode=require
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.datasource.username=<DB_USER>
+spring.datasource.password=<DB_PASSWORD>
+
+# ========================
+# JPA / Hibernate
+# ========================
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+# ========================
+# JWT
+# ========================
+jwt.secret=<JWT_SECRET_MIN_32_CHARS>
+jwt.expiration=86400000
+
+# ========================
+# Swagger
+# ========================
+springdoc.swagger-ui.path=/swagger-ui.html
+springdoc.api-docs.path=/api-docs
+
+# ========================
+# Server
+# ========================
+server.port=8080
+spring.application.name=stock-api

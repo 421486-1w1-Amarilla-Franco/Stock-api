@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,18 +37,36 @@ public class VentaService {
         Transaccion transaccion = new Transaccion();
         transaccion.setUsuario(usuario);
         transaccion.setObservaciones(request.getObservaciones());
-        transaccion.setEstado(Transaccion.Estado.PENDIENTE);
+        transaccion.setEstado(Transaccion.Estado.COMPLETADA);
 
         BigDecimal total = BigDecimal.ZERO;
+
+        List<Producto> productosList = new ArrayList<>();
+        List<Integer> cantidadesList = new ArrayList<>();
+        List<Integer> stocksAnteriores = new ArrayList<>();
 
         for (DetalleVentaRequest detalleReq : request.getDetalles()) {
             Producto producto = productoRepository.findById(detalleReq.getProductoId())
                     .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + detalleReq.getProductoId()));
 
+            int stockAnterior = producto.getStockActual();
+            int requerido = detalleReq.getCantidad();
+
+            if (stockAnterior < requerido) {
+                throw new StockInsuficienteException(producto.getNombre(), stockAnterior, requerido);
+            }
+
+            producto.setStockActual(stockAnterior - requerido);
+            productoRepository.save(producto);
+
+            productosList.add(producto);
+            cantidadesList.add(requerido);
+            stocksAnteriores.add(stockAnterior);
+
             DetalleVenta detalle = new DetalleVenta();
             detalle.setTransaccion(transaccion);
             detalle.setProducto(producto);
-            detalle.setCantidad(detalleReq.getCantidad());
+            detalle.setCantidad(requerido);
             detalle.setPrecioUnitario(producto.getPrecioVenta());
             detalle.calcularSubtotal();
 
@@ -56,7 +75,20 @@ public class VentaService {
         }
 
         transaccion.setTotal(total);
-        return toResponse(transaccionRepository.save(transaccion));
+        Transaccion saved = transaccionRepository.save(transaccion);
+
+        for (int i = 0; i < productosList.size(); i++) {
+            movimientoService.registrarMovimientoInterno(
+                    productosList.get(i), usuario,
+                    Movimiento.TipoMovimiento.SALIDA,
+                    cantidadesList.get(i),
+                    "Venta #" + saved.getId(),
+                    stocksAnteriores.get(i),
+                    stocksAnteriores.get(i) - cantidadesList.get(i)
+            );
+        }
+
+        return toResponse(saved);
     }
 
     @Transactional
@@ -76,6 +108,25 @@ public class VentaService {
                     .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
             if (!esAdmin) {
                 throw new AccessDeniedException("Solo los administradores pueden anular ventas");
+            }
+
+            if (transaccion.getEstado() == Transaccion.Estado.COMPLETADA) {
+                Usuario usuario = getUsuarioAutenticado();
+                for (DetalleVenta detalle : transaccion.getDetalles()) {
+                    Producto producto = detalle.getProducto();
+                    int stockAnterior = producto.getStockActual();
+                    int stockPosterior = stockAnterior + detalle.getCantidad();
+                    producto.setStockActual(stockPosterior);
+                    productoRepository.save(producto);
+                    movimientoService.registrarMovimientoInterno(
+                            producto, usuario,
+                            Movimiento.TipoMovimiento.ENTRADA,
+                            detalle.getCantidad(),
+                            "Anulación venta #" + transaccion.getId(),
+                            stockAnterior,
+                            stockPosterior
+                    );
+                }
             }
         }
 
@@ -147,6 +198,7 @@ public class VentaService {
             dr.setId(d.getId());
             dr.setProductoId(d.getProducto().getId());
             dr.setProductoNombre(d.getProducto().getNombre());
+            dr.setProductoCodigo(d.getProducto().getCodigo());
             dr.setCantidad(d.getCantidad());
             dr.setPrecioUnitario(d.getPrecioUnitario());
             dr.setSubtotal(d.getSubtotal());

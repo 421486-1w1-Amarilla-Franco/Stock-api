@@ -76,7 +76,13 @@ public class MovimientoService {
                 }
                 yield stockAnterior - cantidad;
             }
-            case AJUSTE -> cantidad;
+            case AJUSTE -> {
+                int posterior = stockAnterior + cantidad;
+                if (posterior < 0) {
+                    throw new StockInsuficienteException(producto.getNombre(), stockAnterior, -cantidad);
+                }
+                yield posterior;
+            }
         };
     }
 
@@ -98,6 +104,7 @@ public class MovimientoService {
         r.setId(m.getId());
         r.setProductoId(m.getProducto().getId());
         r.setProductoNombre(m.getProducto().getNombre());
+        r.setProductoCodigo(m.getProducto().getCodigo());
         r.setUsuarioId(m.getUsuario().getId());
         r.setUsuarioNombre(m.getUsuario().getNombre());
         r.setTipo(m.getTipo().name());
