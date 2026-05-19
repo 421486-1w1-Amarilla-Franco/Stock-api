@@ -43,7 +43,7 @@ export default function App() {
   const [movDrawer, setMovDrawer] = useState<{ open: boolean; productoId?: number; tipo?: TipoMovimiento }>({ open: false });
   const [toast, setToast] = useState<ToastData | null>(null);
 
-  const showToast = useCallback((kind: 'success' | 'error', title: string) => {
+  const showToast = useCallback((kind: 'success' | 'error' | 'info', title: string) => {
     setToast({ id: Date.now(), kind, title });
   }, []);
 
@@ -100,8 +100,23 @@ export default function App() {
         />
         <ErrorBoundary>
           {activeTab === 'dashboard' && <Dashboard user={user} syncStatus={syncStatus} onAddStock={(id) => openMovimiento(id, 'ENTRADA')} />}
-          {activeTab === 'productos' && <Productos user={user} onAjustarStock={(id) => openMovimiento(id, 'AJUSTE')} />}
-          {activeTab === 'ventas' && <Ventas user={user} onNuevaVenta={openPos} />}
+          {activeTab === 'productos' && (
+            <Productos
+              user={user}
+              onAjustarStock={(id) => openMovimiento(id, 'AJUSTE')}
+              onSuccess={(msg) => showToast('success', msg)}
+              onInfo={(msg) => showToast('info', msg)}
+              onError={(msg) => showToast('error', msg)}
+            />
+          )}
+          {activeTab === 'ventas' && (
+            <Ventas
+              user={user}
+              onNuevaVenta={openPos}
+              onInfo={(msg) => showToast('info', msg)}
+              onError={(msg) => showToast('error', msg)}
+            />
+          )}
           {activeTab === 'movimientos' && <Movimientos onRegistrarMovimiento={() => openMovimiento()} />}
           {activeTab === 'reportes' && (
             <PlaceholderPage

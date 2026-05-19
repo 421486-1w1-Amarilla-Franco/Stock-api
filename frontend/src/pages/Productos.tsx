@@ -34,7 +34,7 @@ function SortableTh({ label, k, sortBy, onSort, style }: {
 }) {
   const active = sortBy.key === k;
   return (
-    <th style={style} className="sortable-th" onClick={() => onSort(k)}>
+    <th scope="col" style={style} className="sortable-th" onClick={() => onSort(k)}>
       <span>{label}</span>
       <svg viewBox="0 0 12 12" width="10" height="10" fill="none" className={`sort-icon${active ? ' is-active' : ''}`}>
         {active && sortBy.dir === 'desc'
@@ -45,9 +45,11 @@ function SortableTh({ label, k, sortBy, onSort, style }: {
   );
 }
 
-function ProductoDrawer({ open, onClose, producto, onAjustarStock }: {
+function ProductoDrawer({ open, onClose, producto, onAjustarStock, onSuccess, onError }: {
   open: boolean; onClose: () => void; producto: ProductoResponse | null;
   onAjustarStock?: (productoId: number) => void;
+  onSuccess?: (msg: string) => void;
+  onError?: (msg: string) => void;
 }) {
   const isEdit = !!producto;
   const [form, setForm] = useState<ProductoRequest>({ ...EMPTY_FORM });
@@ -85,9 +87,15 @@ function ProductoDrawer({ open, onClose, producto, onAjustarStock }: {
   const handleSave = () => {
     if (!form.nombre.trim()) return;
     if (isEdit && producto) {
-      actualizar.mutate({ id: producto.id, data: form }, { onSuccess: onClose });
+      actualizar.mutate({ id: producto.id, data: form }, {
+        onSuccess: () => { onSuccess?.(`${form.nombre} actualizado`); onClose(); },
+        onError: (err: unknown) => onError?.((err as { response?: { data?: { mensaje?: string } } })?.response?.data?.mensaje ?? 'Error al actualizar'),
+      });
     } else {
-      crear.mutate(form, { onSuccess: onClose });
+      crear.mutate(form, {
+        onSuccess: (data) => { onSuccess?.(`Producto creado · Stock inicial: ${data.stockActual}`); onClose(); },
+        onError: (err: unknown) => onError?.((err as { response?: { data?: { mensaje?: string } } })?.response?.data?.mensaje ?? 'Error al crear producto'),
+      });
     }
   };
 
@@ -211,7 +219,13 @@ function ProductoDrawer({ open, onClose, producto, onAjustarStock }: {
   );
 }
 
-export default function Productos({ onAjustarStock, user }: { onAjustarStock?: (productoId: number) => void; user?: AuthUser | null } = {}) {
+export default function Productos({ onAjustarStock, user, onSuccess, onInfo, onError }: {
+  onAjustarStock?: (productoId: number) => void;
+  user?: AuthUser | null;
+  onSuccess?: (msg: string) => void;
+  onInfo?: (msg: string) => void;
+  onError?: (msg: string) => void;
+} = {}) {
   const { data: productos = [], isLoading } = useProductos();
   const eliminar = useEliminarProducto();
   const restaurar = useRestaurarProducto();
@@ -313,8 +327,8 @@ export default function Productos({ onAjustarStock, user }: { onAjustarStock?: (
                 <SortableTh label="P. costo" k="precioCosto" sortBy={sortBy} onSort={toggleSort} style={{ width: 120, textAlign: 'right' }}/>
                 <SortableTh label="P. venta" k="precioVenta" sortBy={sortBy} onSort={toggleSort} style={{ width: 130, textAlign: 'right' }}/>
                 <SortableTh label="Stock" k="stockActual" sortBy={sortBy} onSort={toggleSort} style={{ width: 130, textAlign: 'right' }}/>
-                <th style={{ width: 110 }}>Estado</th>
-                <th style={{ width: 60 }} aria-label="acciones"/>
+                <th scope="col" style={{ width: 110 }}>Estado</th>
+                <th scope="col" style={{ width: 60 }} aria-label="acciones"/>
               </tr>
             </thead>
             <tbody>
@@ -334,7 +348,13 @@ export default function Productos({ onAjustarStock, user }: { onAjustarStock?: (
                   ? ((Number(p.precioVenta) - Number(p.precioCosto)) / Number(p.precioCosto)) * 100
                   : 0;
                 return (
-                  <tr key={p.id} onClick={() => setDrawer({ open: true, producto: p })}>
+                  <tr
+                    key={p.id}
+                    onClick={() => setDrawer({ open: true, producto: p })}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDrawer({ open: true, producto: p }); } }}
+                  >
                     <td>
                       <div className="td-product">
                         <span className="td-product-name">{p.nombre}</span>
@@ -371,7 +391,10 @@ export default function Productos({ onAjustarStock, user }: { onAjustarStock?: (
                             )
                           : (
                               <button className="row-action row-action-success" aria-label="Reactivar" title="Reactivar"
-                                onClick={() => restaurar.mutate(p.id)}>
+                                onClick={() => restaurar.mutate(p.id, {
+                                  onSuccess: () => onSuccess?.(`${p.nombre} reactivado`),
+                                  onError: () => onError?.('Error al reactivar'),
+                                })}>
                                 <RotateCcw size={14} strokeWidth={1.8}/>
                               </button>
                             )
@@ -394,6 +417,8 @@ export default function Productos({ onAjustarStock, user }: { onAjustarStock?: (
         producto={drawer.producto}
         onClose={() => setDrawer({ open: false, producto: null })}
         onAjustarStock={onAjustarStock}
+        onSuccess={onSuccess}
+        onError={onError}
       />
 
       <ConfirmModal
@@ -403,7 +428,13 @@ export default function Productos({ onAjustarStock, user }: { onAjustarStock?: (
         confirmLabel="Dar de baja"
         danger
         onConfirm={() => {
-          if (confirm.producto) eliminar.mutate(confirm.producto.id);
+          if (confirm.producto) {
+            const nombre = confirm.producto.nombre;
+            eliminar.mutate(confirm.producto.id, {
+              onSuccess: () => onInfo?.(`${nombre} dado de baja`),
+              onError: (err: unknown) => onError?.((err as { response?: { data?: { mensaje?: string } } })?.response?.data?.mensaje ?? 'Error al dar de baja'),
+            });
+          }
           setConfirm({ open: false, producto: null });
         }}
         onCancel={() => setConfirm({ open: false, producto: null })}

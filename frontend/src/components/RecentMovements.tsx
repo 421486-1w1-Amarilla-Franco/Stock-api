@@ -44,14 +44,14 @@ export default function RecentMovements({ movimientos, isLoading }: RecentMoveme
         <table className="table">
           <thead>
             <tr>
-              <th style={{ width: 56 }}>#</th>
-              <th>Producto</th>
-              <th style={{ width: 110 }}>Tipo</th>
-              <th style={{ width: 90, textAlign: 'right' }}>Cant.</th>
-              <th style={{ width: 130, textAlign: 'right' }}>Stock</th>
-              <th style={{ width: 160 }}>Usuario</th>
-              <th style={{ width: 140 }}>Nota</th>
-              <th style={{ width: 100, textAlign: 'right' }}>Cuándo</th>
+              <th scope="col" style={{ width: 56 }}>#</th>
+              <th scope="col">Producto</th>
+              <th scope="col" style={{ width: 110 }}>Tipo</th>
+              <th scope="col" style={{ width: 90, textAlign: 'right' }}>Cant.</th>
+              <th scope="col" style={{ width: 130, textAlign: 'right' }}>Stock</th>
+              <th scope="col" style={{ width: 160 }}>Usuario</th>
+              <th scope="col" style={{ width: 140 }}>Nota</th>
+              <th scope="col" style={{ width: 100, textAlign: 'right' }}>Cuándo</th>
             </tr>
           </thead>
           <tbody>

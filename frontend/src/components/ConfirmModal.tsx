@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface ConfirmModalProps {
   open: boolean;
@@ -11,11 +11,15 @@ interface ConfirmModalProps {
   onCancel: () => void;
 }
 
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export default function ConfirmModal({
   open, title, description,
   confirmLabel = 'Confirmar', cancelLabel = 'Cancelar',
   danger = false, onConfirm, onCancel,
 }: ConfirmModalProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
@@ -23,11 +27,32 @@ export default function ConfirmModal({
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onCancel]);
 
+  useEffect(() => {
+    if (!open) return;
+    const card = cardRef.current;
+    if (!card) return;
+    const getFocusable = () => Array.from(card.querySelectorAll<HTMLElement>(FOCUSABLE));
+    getFocusable()[0]?.focus();
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const focusable = getFocusable();
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    };
+    document.addEventListener('keydown', trap);
+    return () => document.removeEventListener('keydown', trap);
+  }, [open]);
+
   if (!open) return null;
 
   return (
     <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div ref={cardRef} className="modal-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div className="modal-icon-wrap" style={{ background: danger ? 'var(--danger-soft)' : 'var(--accent-soft)' }}>
           {danger ? (
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" style={{ color: 'var(--danger)' }}>

@@ -28,12 +28,14 @@ interface DrawerState {
 }
 
 function VentaDrawer({
-  open, venta, onClose, isAdmin,
+  open, venta, onClose, isAdmin, onInfo, onError,
 }: {
   open: boolean;
   venta: VentaResponse | null;
   onClose: () => void;
   isAdmin: boolean;
+  onInfo?: (msg: string) => void;
+  onError?: (msg: string) => void;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const eliminar = useEliminarVenta();
@@ -43,10 +45,15 @@ function VentaDrawer({
   const uiEstado = toUIEstado(venta.estado);
 
   const handleEliminar = () => {
+    const n = venta.detalles.length;
     eliminar.mutate(venta.id as unknown as number, {
       onSuccess: () => {
+        onInfo?.(`Venta #${venta.id} eliminada · Stock restaurado en ${n} producto${n === 1 ? '' : 's'}`);
         setConfirmOpen(false);
         onClose();
+      },
+      onError: (err: unknown) => {
+        onError?.((err as { response?: { data?: { mensaje?: string } } })?.response?.data?.mensaje ?? 'Error al eliminar la venta');
       },
     });
   };
@@ -149,8 +156,13 @@ function VentaDrawer({
   );
 }
 
-export default function Ventas({ onNuevaVenta, user }: { onNuevaVenta?: () => void; user?: AuthUser | null }) {
-  const { data: ventas = [], isLoading, isError } = useVentas();
+export default function Ventas({ onNuevaVenta, user, onInfo, onError }: {
+  onNuevaVenta?: () => void;
+  user?: AuthUser | null;
+  onInfo?: (msg: string) => void;
+  onError?: (msg: string) => void;
+}) {
+  const { data: ventas = [], isLoading, isError, refetch } = useVentas();
   const [filtro, setFiltro] = useState<FiltroKey>('todas');
   const [drawer, setDrawer] = useState<DrawerState>({ open: false, venta: null });
   const isAdmin = user?.rol === 'ADMIN';
@@ -219,64 +231,82 @@ export default function Ventas({ onNuevaVenta, user }: { onNuevaVenta?: () => vo
       </div>
 
       <div className="card no-pad">
-        {isLoading && (
-          <div style={{ padding: 48, textAlign: 'center', color: 'var(--muted)' }}>Cargando ventas…</div>
-        )}
-        {isError && (
-          <div style={{ padding: 48, textAlign: 'center', color: 'var(--danger)' }}>Error al cargar ventas.</div>
-        )}
+        <div className="table-wrap">
+          <table className="table table-clickable">
+            <thead>
+              <tr>
+                <th scope="col" style={{ width: 80 }}>ID</th>
+                <th scope="col" style={{ width: 160 }}>Fecha</th>
+                <th scope="col">Observaciones</th>
+                <th scope="col" style={{ width: 70, textAlign: 'right' }}>Items</th>
+                <th scope="col" style={{ width: 140, textAlign: 'right' }}>Total</th>
+                <th scope="col" style={{ width: 140 }}>Usuario</th>
+                <th scope="col" style={{ width: 130 }}>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading && Array.from({ length: 8 }).map((_, i) => (
+                <tr key={i}>
+                  <td><div className="skeleton" style={{ height: 14, width: 40 }} /></td>
+                  <td><div className="skeleton" style={{ height: 14, width: 120 }} /></td>
+                  <td><div className="skeleton" style={{ height: 14, width: '70%' }} /></td>
+                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 24, marginLeft: 'auto' }} /></td>
+                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 80, marginLeft: 'auto' }} /></td>
+                  <td><div className="skeleton" style={{ height: 14, width: 100 }} /></td>
+                  <td><div className="skeleton" style={{ height: 20, width: 80 }} /></td>
+                </tr>
+              ))}
+              {isError && (
+                <tr>
+                  <td colSpan={7} className="empty-state">
+                    <div className="empty-title" style={{ color: 'var(--danger)' }}>Error al cargar ventas</div>
+                    <div className="empty-sub">No se pudo conectar con el servidor.</div>
+                    <button className="btn btn-ghost" style={{ marginTop: 12 }} onClick={() => refetch()}>Reintentar</button>
+                  </td>
+                </tr>
+              )}
+              {!isLoading && !isError && list.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="empty-state">
+                    <div className="empty-title">Sin ventas en este filtro</div>
+                    <div className="empty-sub">Probá otro estado o creá una venta nueva.</div>
+                  </td>
+                </tr>
+              )}
+              {!isLoading && !isError && list.map((v) => (
+                <tr
+                  key={v.id}
+                  onClick={() => setDrawer({ open: true, venta: v })}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDrawer({ open: true, venta: v }); } }}
+                >
+                  <td className="td-id">#{v.id}</td>
+                  <td className="td-muted" style={{ fontSize: 13 }}>{fmtDateTime(v.fecha)}</td>
+                  <td>
+                    {v.observaciones
+                      ? <span className="td-product-name">{v.observaciones}</span>
+                      : <em style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: 13 }}>Sin observaciones</em>
+                    }
+                  </td>
+                  <td className="td-num">{v.detalles.length}</td>
+                  <td className="td-num"><strong>{fmtARS(v.total)}</strong></td>
+                  <td>
+                    <div className="td-user">
+                      <div className="avatar avatar-sm">{initials(v.usuarioNombre)}</div>
+                      <span style={{ fontSize: 13 }}>{v.usuarioNombre}</span>
+                    </div>
+                  </td>
+                  <td><EstadoChip estado={toUIEstado(v.estado)} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {!isLoading && !isError && (
-          <>
-            <div className="table-wrap">
-              <table className="table table-clickable">
-                <thead>
-                  <tr>
-                    <th style={{ width: 80 }}>ID</th>
-                    <th style={{ width: 160 }}>Fecha</th>
-                    <th>Observaciones</th>
-                    <th style={{ width: 70, textAlign: 'right' }}>Items</th>
-                    <th style={{ width: 140, textAlign: 'right' }}>Total</th>
-                    <th style={{ width: 140 }}>Usuario</th>
-                    <th style={{ width: 130 }}>Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {list.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="empty-state">
-                        <div className="empty-title">Sin ventas en este filtro</div>
-                        <div className="empty-sub">Probá otro estado o creá una venta nueva.</div>
-                      </td>
-                    </tr>
-                  )}
-                  {list.map((v) => (
-                    <tr key={v.id} onClick={() => setDrawer({ open: true, venta: v })}>
-                      <td className="td-id">#{v.id}</td>
-                      <td className="td-muted" style={{ fontSize: 13 }}>{fmtDateTime(v.fecha)}</td>
-                      <td>
-                        {v.observaciones
-                          ? <span className="td-product-name">{v.observaciones}</span>
-                          : <em style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: 13 }}>Sin observaciones</em>
-                        }
-                      </td>
-                      <td className="td-num">{v.detalles.length}</td>
-                      <td className="td-num"><strong>{fmtARS(v.total)}</strong></td>
-                      <td>
-                        <div className="td-user">
-                          <div className="avatar avatar-sm">{initials(v.usuarioNombre)}</div>
-                          <span style={{ fontSize: 13 }}>{v.usuarioNombre}</span>
-                        </div>
-                      </td>
-                      <td><EstadoChip estado={toUIEstado(v.estado)} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="table-foot">
-              <span>{list.length} ventas</span>
-            </div>
-          </>
+          <div className="table-foot">
+            <span>{list.length} ventas</span>
+          </div>
         )}
       </div>
 
@@ -285,6 +315,8 @@ export default function Ventas({ onNuevaVenta, user }: { onNuevaVenta?: () => vo
         venta={drawer.venta}
         onClose={() => setDrawer({ open: false, venta: null })}
         isAdmin={isAdmin}
+        onInfo={onInfo}
+        onError={onError}
       />
     </main>
   );

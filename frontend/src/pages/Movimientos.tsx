@@ -8,7 +8,7 @@ import type { TipoMovimiento } from '../types/api';
 type FiltroTipo = 'todos' | TipoMovimiento;
 
 export default function Movimientos({ onRegistrarMovimiento }: { onRegistrarMovimiento?: () => void } = {}) {
-  const { data: movimientos = [], isLoading, isError } = useMovimientos();
+  const { data: movimientos = [], isLoading, isError, refetch } = useMovimientos();
   const [tipo, setTipo] = useState<FiltroTipo>('todos');
   const [q, setQ] = useState('');
   const [productoFilter, setProductoFilter] = useState<{ id: number; nombre: string } | null>(null);
@@ -106,38 +106,51 @@ export default function Movimientos({ onRegistrarMovimiento }: { onRegistrarMovi
       </div>
 
       <div className="card no-pad">
-        {isLoading && (
-          <div style={{ padding: 48, textAlign: 'center', color: 'var(--muted)' }}>Cargando movimientos…</div>
-        )}
-        {isError && (
-          <div style={{ padding: 48, textAlign: 'center', color: 'var(--danger)' }}>Error al cargar movimientos.</div>
-        )}
-        {!isLoading && !isError && (
-          <>
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th style={{ width: 70 }}>#</th>
-                    <th>Producto</th>
-                    <th style={{ width: 110 }}>Tipo</th>
-                    <th style={{ width: 90, textAlign: 'right' }}>Cant.</th>
-                    <th style={{ width: 130, textAlign: 'right' }}>Stock</th>
-                    <th style={{ width: 160 }}>Usuario</th>
-                    <th style={{ width: 160 }}>Nota</th>
-                    <th style={{ width: 130, textAlign: 'right' }}>Fecha</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {list.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="empty-state">
-                        <div className="empty-title">Sin movimientos</div>
-                        <div className="empty-sub">Probá quitar algunos filtros.</div>
-                      </td>
-                    </tr>
-                  )}
-                  {list.map((m) => {
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th scope="col" style={{ width: 70 }}>#</th>
+                <th scope="col">Producto</th>
+                <th scope="col" style={{ width: 110 }}>Tipo</th>
+                <th scope="col" style={{ width: 90, textAlign: 'right' }}>Cant.</th>
+                <th scope="col" style={{ width: 130, textAlign: 'right' }}>Stock</th>
+                <th scope="col" style={{ width: 160 }}>Usuario</th>
+                <th scope="col" style={{ width: 160 }}>Nota</th>
+                <th scope="col" style={{ width: 130, textAlign: 'right' }}>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading && Array.from({ length: 8 }).map((_, i) => (
+                <tr key={i}>
+                  <td><div className="skeleton" style={{ height: 14, width: 32 }} /></td>
+                  <td><div className="skeleton" style={{ height: 14, width: '70%' }} /></td>
+                  <td><div className="skeleton" style={{ height: 20, width: 70 }} /></td>
+                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 28, marginLeft: 'auto' }} /></td>
+                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 70, marginLeft: 'auto' }} /></td>
+                  <td><div className="skeleton" style={{ height: 14, width: 100 }} /></td>
+                  <td><div className="skeleton" style={{ height: 14, width: 80 }} /></td>
+                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 80, marginLeft: 'auto' }} /></td>
+                </tr>
+              ))}
+              {isError && (
+                <tr>
+                  <td colSpan={8} className="empty-state">
+                    <div className="empty-title" style={{ color: 'var(--danger)' }}>Error al cargar movimientos</div>
+                    <div className="empty-sub">No se pudo conectar con el servidor.</div>
+                    <button className="btn btn-ghost" style={{ marginTop: 12 }} onClick={() => refetch()}>Reintentar</button>
+                  </td>
+                </tr>
+              )}
+              {!isLoading && !isError && list.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="empty-state">
+                    <div className="empty-title">Sin movimientos</div>
+                    <div className="empty-sub">Probá quitar algunos filtros.</div>
+                  </td>
+                </tr>
+              )}
+              {!isLoading && !isError && list.map((m) => {
                     const isNeg = m.tipo === 'SALIDA' || (m.tipo === 'AJUSTE' && m.cantidad < 0);
                     const cantSign = m.tipo === 'SALIDA' ? '−' : m.tipo === 'ENTRADA' ? '+' : m.cantidad < 0 ? '−' : '+';
                     const cantStr = `${cantSign}${Math.abs(m.cantidad)}`;
@@ -174,15 +187,15 @@ export default function Movimientos({ onRegistrarMovimiento }: { onRegistrarMovi
                         <td className="td-muted" style={{ fontSize: 13 }}>{m.nota ?? '—'}</td>
                         <td className="td-num td-muted" style={{ fontSize: 13 }}>{fmtDateTime(m.fecha)}</td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="table-foot">
-              <span>{list.length} movimientos</span>
-            </div>
-          </>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+        {!isLoading && !isError && (
+          <div className="table-foot">
+            <span>{list.length} movimientos</span>
+          </div>
         )}
       </div>
     </main>
