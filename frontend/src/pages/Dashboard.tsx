@@ -33,9 +33,10 @@ export default function Dashboard({ user, syncStatus, onAddStock }: DashboardPro
     return stock.reduce((s, p) => s + (p.precioVenta ?? 0) * (p.stockActual ?? 0), 0);
   }, [stock]);
 
-  const ventasPendientes = useMemo(() => {
+  const ventasHoy = useMemo(() => {
     if (!ventas) return 0;
-    return ventas.filter((v) => v.estado === 'PENDIENTE').length;
+    const hoy = new Date().toDateString();
+    return ventas.filter((v) => new Date(v.fecha).toDateString() === hoy).length;
   }, [ventas]);
 
   const greeting = useMemo(() => {
@@ -68,7 +69,7 @@ export default function Dashboard({ user, syncStatus, onAddStock }: DashboardPro
           <h1 className="page-title">{greeting}, {firstName}.</h1>
           <p className="page-sub">
             Tenés{' '}
-            <strong>{ventasPendientes} ventas pendientes</strong> de completar y{' '}
+            <strong>{ventasHoy} venta{ventasHoy === 1 ? '' : 's'} hoy</strong> y{' '}
             <strong>{bajoStock?.length ?? 0} productos</strong> bajo stock mínimo.
           </p>
         </div>
@@ -96,7 +97,7 @@ export default function Dashboard({ user, syncStatus, onAddStock }: DashboardPro
         valorInventario={valorInventario}
         ventasMes={reporte?.totalVentas ?? 0}
         bajoStockCount={bajoStock?.length ?? 0}
-        ventasPendientes={ventasPendientes}
+        ventasHoy={ventasHoy}
         ventasDiarias={reporte?.ventasDiarias ?? []}
         isLoading={isLoading}
       />

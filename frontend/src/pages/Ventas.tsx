@@ -3,6 +3,7 @@ import { useVentas, useEliminarVenta } from '../hooks/useVentas';
 import Drawer from '../components/Drawer';
 import ConfirmModal from '../components/ConfirmModal';
 import { fmtARS, fmtDateTime, fmtDateTimeFull, initials } from '../lib/format';
+import { exportCSV } from '../lib/export';
 import type { VentaResponse, AuthUser } from '../types/api';
 
 // Maps backend estado → UI display estado
@@ -200,7 +201,26 @@ export default function Ventas({ onNuevaVenta, user, onInfo, onError }: {
           </p>
         </div>
         <div className="page-actions">
-          <button className="btn btn-ghost">
+          <button
+            className="btn btn-ghost"
+            onClick={() => exportCSV('ventas', list.map((v) => ({
+              id: v.id,
+              fecha: fmtDateTime(v.fecha),
+              total: v.total,
+              items: v.detalles.length,
+              usuario: v.usuarioNombre,
+              estado: toUIEstado(v.estado),
+              observaciones: v.observaciones ?? '',
+            })), [
+              { key: 'id', header: 'ID' },
+              { key: 'fecha', header: 'Fecha' },
+              { key: 'total', header: 'Total' },
+              { key: 'items', header: 'Items' },
+              { key: 'usuario', header: 'Usuario' },
+              { key: 'estado', header: 'Estado' },
+              { key: 'observaciones', header: 'Observaciones' },
+            ])}
+          >
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
               <path d="M12 3v12M6 9l6 6 6-6M5 21h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>

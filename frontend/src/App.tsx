@@ -10,7 +10,8 @@ import MovimientoDrawer from './components/MovimientoDrawer';
 import Toast, { type ToastData } from './components/Toast';
 import Login from './pages/Login';
 import ErrorBoundary from './components/ErrorBoundary';
-import PlaceholderPage from './components/PlaceholderPage';
+import Reportes from './pages/Reportes';
+import Usuarios from './pages/Usuarios';
 import type { AuthUser, LoginResponse, TipoMovimiento } from './types/api';
 
 const queryClient = new QueryClient({
@@ -118,28 +119,13 @@ export default function App() {
             />
           )}
           {activeTab === 'movimientos' && <Movimientos onRegistrarMovimiento={() => openMovimiento()} />}
-          {activeTab === 'reportes' && (
-            <PlaceholderPage
-              eyebrow="Análisis"
-              title="Reportes"
-              features={[
-                { label: 'Reporte de ventas por rango de fechas' },
-                { label: 'Valor de inventario actual y proyección' },
-                { label: 'Ranking de productos más vendidos por unidades e ingresos' },
-                { label: 'Comparativa mes a mes y export a CSV/PDF' },
-              ]}
-            />
-          )}
+          {activeTab === 'reportes' && <Reportes />}
           {activeTab === 'usuarios' && (
-            <PlaceholderPage
-              eyebrow="Administración"
-              title="Usuarios"
-              features={[
-                { label: 'Listado de usuarios activos con su rol (ADMIN / OPERADOR)' },
-                { label: 'Crear, editar y deshabilitar cuentas' },
-                { label: 'Reseteo de contraseña y auditoría de accesos' },
-                { label: 'Permisos granulares por endpoint' },
-              ]}
+            <Usuarios
+              user={user}
+              onSuccess={(msg) => showToast('success', msg)}
+              onInfo={(msg) => showToast('info', msg)}
+              onError={(msg) => showToast('error', msg)}
             />
           )}
           {!['dashboard', 'productos', 'ventas', 'movimientos', 'reportes', 'usuarios'].includes(activeTab) && (

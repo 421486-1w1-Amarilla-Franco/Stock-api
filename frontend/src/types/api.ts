@@ -85,3 +85,12 @@ export interface LoginResponse {
   token: string;
   usuario: AuthUser;
 }
+
+export interface UsuarioResponse {
+  id: number;
+  nombre: string;
+  email: string;
+  rol: Rol;
+  activo: boolean;
+  creadoEn: string;
+}

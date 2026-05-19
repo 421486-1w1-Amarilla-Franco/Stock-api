@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Download, Trash2, RotateCcw } from 'lucide-react';
+import { exportCSV } from '../lib/export';
 import {
   useProductos, useCrearProducto, useActualizarProducto,
   useEliminarProducto, useRestaurarProducto,
@@ -278,7 +279,28 @@ export default function Productos({ onAjustarStock, user, onSuccess, onInfo, onE
           <p className="page-sub">{countAll} activos · {countBajo} bajo stock · {countInact} inactivos.</p>
         </div>
         <div className="page-actions">
-          <button className="btn btn-ghost">
+          <button
+            className="btn btn-ghost"
+            onClick={() => exportCSV('productos', filtered.map((p) => ({
+              nombre: p.nombre,
+              codigo: p.codigo ?? '',
+              categoria: p.categoria,
+              precioVenta: p.precioVenta,
+              precioCosto: p.precioCosto,
+              stockActual: p.stockActual,
+              stockMinimo: p.stockMinimo,
+              estado: p.activo ? (p.stockActual === 0 ? 'Sin stock' : p.stockActual <= p.stockMinimo ? 'Bajo stock' : 'OK') : 'Inactivo',
+            })), [
+              { key: 'nombre', header: 'Nombre' },
+              { key: 'codigo', header: 'Código' },
+              { key: 'categoria', header: 'Categoría' },
+              { key: 'precioVenta', header: 'Precio venta' },
+              { key: 'precioCosto', header: 'Precio costo' },
+              { key: 'stockActual', header: 'Stock actual' },
+              { key: 'stockMinimo', header: 'Stock mínimo' },
+              { key: 'estado', header: 'Estado' },
+            ])}
+          >
             <Download size={14} strokeWidth={1.8}/>
             Exportar
           </button>

@@ -60,7 +60,7 @@ interface KpiCardsProps {
   valorInventario: number;
   ventasMes: number;
   bajoStockCount: number;
-  ventasPendientes: number;
+  ventasHoy: number;
   ventasDiarias: number[];
   isLoading?: boolean;
 }
@@ -69,7 +69,7 @@ export default function KpiCards({
   valorInventario,
   ventasMes,
   bajoStockCount,
-  ventasPendientes,
+  ventasHoy,
   ventasDiarias,
   isLoading,
 }: KpiCardsProps) {
@@ -101,10 +101,10 @@ export default function KpiCards({
       warn: true,
     },
     {
-      label: 'Ventas pendientes',
-      value: String(ventasPendientes),
-      delta: <Delta value={0} label="sin cambios" />,
-      sub: 'a completar',
+      label: 'Ventas hoy',
+      value: String(ventasHoy),
+      delta: <Delta value={null} label="del día" />,
+      sub: 'registradas hoy',
     },
   ];
 
