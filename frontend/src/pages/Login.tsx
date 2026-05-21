@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Package } from 'lucide-react';
 import axios from 'axios';
+import { api } from '../lib/api';
 import type { LoginResponse } from '../types/api';
 
 interface LoginProps {
@@ -18,7 +19,7 @@ export default function Login({ onLogin }: LoginProps) {
     setError('');
     setLoading(true);
     try {
-      const res = await axios.post<LoginResponse>('/api/auth/login', { email, password });
+      const res = await api.post<LoginResponse>('/auth/login', { email, password });
       onLogin(res.data);
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response?.status === 401) {
