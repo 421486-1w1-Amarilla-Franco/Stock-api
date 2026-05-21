@@ -14,7 +14,7 @@ backend/target/
 *.env
 .env.local
 .env.*.local
-backend/src/main/resources/application.properties
+**/application-local.properties
 
 # ── Frontend: Node / Vite ───────────────────────────────────
 node_modules/

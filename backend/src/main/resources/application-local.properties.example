@@ -1,0 +1,9 @@
+# ========================
+# Plantilla de credenciales locales
+# Copiá este archivo como application-local.properties y completá los valores
+# ========================
+spring.datasource.url=jdbc:postgresql://<host>.supabase.com:5432/postgres?sslmode=require
+spring.datasource.username=postgres.<project-ref>
+spring.datasource.password=<tu-password>
+
+jwt.secret=<clave-secreta-larga-y-aleatoria>
