@@ -26,6 +26,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         return new User(
                 usuario.getEmail(),
                 usuario.getPasswordHash(),
+                Boolean.TRUE.equals(usuario.getActivo()), // enabled: un usuario dado de baja pierde acceso aunque su token no haya vencido
+                true, true, true,
                 List.of(new SimpleGrantedAuthority("ROLE_" + usuario.getRol().name()))
         );
     }

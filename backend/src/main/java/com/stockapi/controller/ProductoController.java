@@ -37,6 +37,12 @@ public class ProductoController {
         return ResponseEntity.ok(productoService.restaurar(id));
     }
 
+    @GetMapping("/codigo/{codigo}")
+    @Operation(summary = "Buscar producto por código (lector de código de barras)")
+    public ResponseEntity<ProductoResponse> obtenerPorCodigo(@PathVariable String codigo) {
+        return ResponseEntity.ok(productoService.obtenerPorCodigo(codigo));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Obtener producto por id")
     public ResponseEntity<ProductoResponse> obtenerPorId(@PathVariable Long id) {

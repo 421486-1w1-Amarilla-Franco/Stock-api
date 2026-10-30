@@ -13,6 +13,11 @@ public class ReporteVentasResponse {
     private Long cantidadTransacciones;
     private List<ProductoMasVendidoResponse> productosMasVendidos;
     private List<BigDecimal> ventasDiarias;
+    /** Costo histórico de la mercadería vendida. */
+    private BigDecimal costoMercaderia;
+    private BigDecimal manoObra;
+    /** totalVentas − costoMercaderia. */
+    private BigDecimal margen;
 
     @Data
     public static class PeriodoInfo {

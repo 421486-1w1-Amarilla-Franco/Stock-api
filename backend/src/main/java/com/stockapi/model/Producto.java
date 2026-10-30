@@ -50,6 +50,9 @@ public class Producto {
 
     private LocalDateTime actualizadoEn;
 
+    @Version
+    private Long version;
+
     @PreUpdate
     public void preUpdate() {
         this.actualizadoEn = LocalDateTime.now();

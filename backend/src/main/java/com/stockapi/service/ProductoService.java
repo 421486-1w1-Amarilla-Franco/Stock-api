@@ -2,9 +2,12 @@ package com.stockapi.service;
 
 import com.stockapi.dto.producto.ProductoRequest;
 import com.stockapi.dto.producto.ProductoResponse;
+import com.stockapi.exception.ConflictException;
 import com.stockapi.exception.ResourceNotFoundException;
+import com.stockapi.model.Movimiento;
 import com.stockapi.model.Producto;
 import com.stockapi.repository.ProductoRepository;
+import com.stockapi.security.UsuarioActual;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +21,8 @@ import java.util.stream.Collectors;
 public class ProductoService {
 
     private final ProductoRepository productoRepository;
+    private final MovimientoService movimientoService;
+    private final UsuarioActual usuarioActual;
 
     @Transactional(readOnly = true)
     public List<ProductoResponse> listarTodos(boolean incluirInactivos) {
@@ -60,14 +65,46 @@ public class ProductoService {
     public ProductoResponse crear(ProductoRequest request) {
         Producto producto = new Producto();
         mapFromRequest(producto, request);
-        return toResponse(productoRepository.save(producto));
+        validarCodigoUnico(producto.getCodigo(), null);
+        int stockInicial = request.getStockActual() != null ? request.getStockActual() : 0;
+        producto.setStockActual(stockInicial);
+        Producto saved = productoRepository.save(producto);
+        // El stock inicial queda en el historial como cualquier otra entrada.
+        if (stockInicial > 0) {
+            movimientoService.registrarMovimientoInterno(saved, usuarioActual.get(),
+                    Movimiento.TipoMovimiento.ENTRADA, stockInicial, "Stock inicial", 0, stockInicial);
+        }
+        return toResponse(saved);
     }
 
+    /** Actualiza datos del producto. El stock NO se toca acá: solo cambia vía movimientos, ventas o compras. */
     @Transactional
     public ProductoResponse actualizar(Long id, ProductoRequest request) {
         Producto producto = findById(id);
         mapFromRequest(producto, request);
+        validarCodigoUnico(producto.getCodigo(), id);
         return toResponse(productoRepository.save(producto));
+    }
+
+    @Transactional(readOnly = true)
+    public ProductoResponse obtenerPorCodigo(String codigo) {
+        return productoRepository.findByCodigo(normalizarCodigo(codigo))
+                .map(this::toResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("No hay producto con código " + codigo));
+    }
+
+    private void validarCodigoUnico(String codigo, Long id) {
+        if (codigo == null) return;
+        boolean existe = id == null
+                ? productoRepository.existsByCodigo(codigo)
+                : productoRepository.existsByCodigoAndIdNot(codigo, id);
+        if (existe) throw new ConflictException("Ya existe un producto con el código " + codigo + ".");
+    }
+
+    /** Mayúsculas y sin espacios; vacío → null (varios productos pueden no tener código). */
+    static String normalizarCodigo(String codigo) {
+        if (codigo == null || codigo.isBlank()) return null;
+        return codigo.trim().toUpperCase();
     }
 
     @Transactional
@@ -83,13 +120,12 @@ public class ProductoService {
     }
 
     private void mapFromRequest(Producto producto, ProductoRequest request) {
-        producto.setNombre(request.getNombre());
-        producto.setCodigo(request.getCodigo());
+        producto.setNombre(request.getNombre().trim());
+        producto.setCodigo(normalizarCodigo(request.getCodigo()));
         producto.setCategoria(request.getCategoria());
         producto.setDescripcion(request.getDescripcion());
         producto.setPrecioCosto(request.getPrecioCosto() != null ? request.getPrecioCosto() : BigDecimal.ZERO);
         producto.setPrecioVenta(request.getPrecioVenta() != null ? request.getPrecioVenta() : BigDecimal.ZERO);
-        producto.setStockActual(request.getStockActual() != null ? request.getStockActual() : 0);
         producto.setStockMinimo(request.getStockMinimo() != null ? request.getStockMinimo() : 0);
     }
 

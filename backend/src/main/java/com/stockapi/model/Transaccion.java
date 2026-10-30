@@ -39,7 +39,29 @@ public class Transaccion {
     @OneToMany(mappedBy = "transaccion", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DetalleVenta> detalles = new ArrayList<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private MedioPago medioPago = MedioPago.EFECTIVO;
+
+    /** Mano de obra cobrada en la venta; se suma al total. */
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal manoObra = BigDecimal.ZERO;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id")
+    private Cliente cliente;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehiculo_id")
+    private Vehiculo vehiculo;
+
+    private Integer kmVehiculo;
+
     public enum Estado {
         PENDIENTE, COMPLETADA, ANULADA
+    }
+
+    public enum MedioPago {
+        EFECTIVO, DEBITO, CREDITO, TRANSFERENCIA
     }
 }

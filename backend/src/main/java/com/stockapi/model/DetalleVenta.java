@@ -33,6 +33,10 @@ public class DetalleVenta {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;
 
+    /** Costo del producto al momento de vender, para calcular margen histórico. */
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal costoUnitario = BigDecimal.ZERO;
+
     @PrePersist
     @PreUpdate
     public void calcularSubtotal() {
