@@ -9,7 +9,7 @@ interface LoginProps {
 }
 
 export default function Login({ onLogin }: LoginProps) {
-  const [email, setEmail] = useState('admin@stockapi.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,7 +25,7 @@ export default function Login({ onLogin }: LoginProps) {
       if (axios.isAxiosError(err) && err.response?.status === 401) {
         setError('Email o contraseña incorrectos.');
       } else {
-        setError('Error al conectar con el servidor.');
+        setError('No se pudo conectar con el servidor. Revisá la conexión y probá de nuevo.');
       }
     } finally {
       setLoading(false);
@@ -54,7 +54,8 @@ export default function Login({ onLogin }: LoginProps) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@stockapi.com"
+              placeholder="vos@taller.com"
+              autoComplete="username"
               required
               autoFocus
             />
@@ -66,11 +67,11 @@ export default function Login({ onLogin }: LoginProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              autoComplete="current-password"
               required
             />
           </div>
-          {error && <div className="login-error">{error}</div>}
+          {error && <div className="login-error" role="alert">{error}</div>}
           <button type="submit" className="login-btn" disabled={loading}>
             {loading ? 'Ingresando…' : 'Ingresar'}
           </button>

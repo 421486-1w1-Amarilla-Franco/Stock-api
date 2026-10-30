@@ -1,4 +1,5 @@
 import { ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import type { MovimientoResponse } from '../types/api';
 import { tiempoRelativo, initials } from '../lib/format';
 import TipoChip from './TipoChip';
@@ -6,9 +7,10 @@ import TipoChip from './TipoChip';
 interface RecentMovementsProps {
   movimientos: MovimientoResponse[];
   isLoading?: boolean;
+  onVerTodos?: () => void;
 }
 
-export default function RecentMovements({ movimientos, isLoading }: RecentMovementsProps) {
+export default function RecentMovements({ movimientos, isLoading, onVerTodos }: RecentMovementsProps) {
   const items = [...movimientos]
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
     .slice(0, 10);
@@ -32,12 +34,9 @@ export default function RecentMovements({ movimientos, isLoading }: RecentMoveme
       <div className="card-head">
         <div>
           <div className="card-title">Últimos movimientos</div>
-          <div className="card-sub">Trazabilidad en tiempo real</div>
+          <div className="card-sub">Los 10 más recientes</div>
         </div>
-        <div className="card-actions">
-          <button className="link-btn">Exportar</button>
-          <button className="link-btn">Ver todos →</button>
-        </div>
+        <button className="link-btn" onClick={onVerTodos}>Ver todos →</button>
       </div>
 
       <div className="table-wrap">
@@ -66,7 +65,7 @@ export default function RecentMovements({ movimientos, isLoading }: RecentMoveme
                   <td className="td-id">#{m.id}</td>
                   <td>
                     <div className="td-product">
-                      <span className="td-product-name">{m.productoNombre}</span>
+                      <Link className="td-product-name link" to={`/productos/${m.productoId}`}>{m.productoNombre}</Link>
                       {m.productoCodigo && (
                         <span className="td-product-code">{m.productoCodigo}</span>
                       )}
@@ -95,8 +94,8 @@ export default function RecentMovements({ movimientos, isLoading }: RecentMoveme
 
             {items.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', color: 'var(--muted)', padding: '24px 0' }}>
-                  Sin movimientos registrados
+                <td colSpan={8} className="card-empty">
+                  Todavía no hay movimientos. Aparecen al vender o ajustar stock.
                 </td>
               </tr>
             )}

@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import Drawer from './Drawer';
 import { useProductos } from '../hooks/useProductos';
 import { useRegistrarMovimiento } from '../hooks/useMovimientos';
-import { fmtARS } from '../lib/format';
+import { apiError } from '../lib/errors';
+import { useApp } from '../lib/app-context';
 import type { TipoMovimiento } from '../types/api';
 
 interface Props {
@@ -10,8 +11,6 @@ interface Props {
   onClose: () => void;
   prefillProductoId?: number;
   prefillTipo?: TipoMovimiento;
-  onSuccess: (msg: string) => void;
-  onError: (msg: string) => void;
 }
 
 const TIPOS: { key: TipoMovimiento; label: string; desc: string }[] = [
@@ -26,7 +25,8 @@ const NOTA_PLACEHOLDER: Record<TipoMovimiento, string> = {
   AJUSTE:  'Ej: Inventario físico, diferencia detectada…',
 };
 
-export default function MovimientoDrawer({ open, onClose, prefillProductoId, prefillTipo = 'ENTRADA', onSuccess, onError }: Props) {
+export default function MovimientoDrawer({ open, onClose, prefillProductoId, prefillTipo = 'ENTRADA' }: Props) {
+  const { toast } = useApp();
   const { data: productos = [] } = useProductos();
   const registrar = useRegistrarMovimiento();
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -80,12 +80,11 @@ export default function MovimientoDrawer({ open, onClose, prefillProductoId, pre
       { productoId: producto.id, tipo, cantidad: cantidadFinal, nota },
       {
         onSuccess: (mov) => {
-          onSuccess(`Movimiento registrado · ${producto.nombre}: ${mov.stockAnterior} → ${mov.stockPosterior}`);
+          toast('success', `Movimiento registrado · ${producto.nombre}: ${mov.stockAnterior} → ${mov.stockPosterior}`);
           onClose();
         },
         onError: (err: unknown) => {
-          const msg = (err as { response?: { data?: { mensaje?: string } } })?.response?.data?.mensaje ?? 'Error al registrar el movimiento';
-          onError(msg);
+          toast('error', apiError(err, 'Error al registrar el movimiento'));
         },
       },
     );
@@ -142,6 +141,7 @@ export default function MovimientoDrawer({ open, onClose, prefillProductoId, pre
                   ref={searchInputRef}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  aria-label="Buscar producto"
                   placeholder="Buscar por nombre o código…"
                 />
               </div>
@@ -245,7 +245,7 @@ export default function MovimientoDrawer({ open, onClose, prefillProductoId, pre
                 )}
 
                 <div className="mov-qty-input">
-                  <button type="button" onClick={() => setCantidad((c) => Math.max(1, c - 1))}>
+                  <button type="button" aria-label="Disminuir cantidad" onClick={() => setCantidad((c) => Math.max(1, c - 1))}>
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none">
                       <path d="M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
                     </svg>
@@ -253,10 +253,11 @@ export default function MovimientoDrawer({ open, onClose, prefillProductoId, pre
                   <input
                     type="number"
                     min="1"
+                    aria-label="Cantidad"
                     value={cantidad}
                     onChange={(e) => setCantidad(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
                   />
-                  <button type="button" onClick={() => setCantidad((c) => c + 1)}>
+                  <button type="button" aria-label="Aumentar cantidad" onClick={() => setCantidad((c) => c + 1)}>
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none">
                       <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
                     </svg>
@@ -265,8 +266,8 @@ export default function MovimientoDrawer({ open, onClose, prefillProductoId, pre
 
                 <div className="mov-qty-quick">
                   {[5, 10, 25].map((n) => (
-                    <button key={n} type="button" className="mov-quick-btn" onClick={() => setCantidad(n)}>
-                      +{n}
+                    <button key={n} type="button" className="mov-quick-btn" aria-label={`Cantidad ${n}`} onClick={() => setCantidad(n)}>
+                      {n} u.
                     </button>
                   ))}
                 </div>

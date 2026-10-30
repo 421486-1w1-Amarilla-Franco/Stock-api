@@ -31,6 +31,8 @@ export default function Drawer({ open, onClose, title, subtitle, width = 520, fo
     const panel = panelRef.current;
     if (!panel) return;
     const getFocusable = () => Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
+    const previous = document.activeElement as HTMLElement | null;
+    if (!panel.contains(document.activeElement)) panel.focus();
     const trap = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
       const focusable = getFocusable();
@@ -43,7 +45,10 @@ export default function Drawer({ open, onClose, title, subtitle, width = 520, fo
       }
     };
     document.addEventListener('keydown', trap);
-    return () => document.removeEventListener('keydown', trap);
+    return () => {
+      document.removeEventListener('keydown', trap);
+      previous?.focus();
+    };
   }, [open]);
 
   if (!open) return null;
@@ -51,10 +56,10 @@ export default function Drawer({ open, onClose, title, subtitle, width = 520, fo
   return (
     <div className="drawer-backdrop" onClick={onClose}>
       <div ref={panelRef} className="drawer-panel" style={{ width }} onClick={(e) => e.stopPropagation()}
-        role="dialog" aria-modal="true" aria-label={title}>
+        role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}>
         <div className="drawer-header">
           <div>
-            <div className="drawer-title">{title}</div>
+            <h2 className="drawer-title">{title}</h2>
             {subtitle && <div className="drawer-subtitle">{subtitle}</div>}
           </div>
           <button className="drawer-close" onClick={onClose} aria-label="Cerrar">

@@ -1,111 +1,79 @@
-import { useState, useMemo } from 'react';
-import { ArrowRight } from 'lucide-react';
-import { useMovimientos } from '../hooks/useMovimientos';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, Plus, Search } from 'lucide-react';
+import { useMovimientos, useConteoMovimientos } from '../hooks/useMovimientos';
 import TipoChip from '../components/TipoChip';
+import Pager from '../components/Pager';
 import { fmtDateTime, initials } from '../lib/format';
+import { useDebounced } from '../lib/useDebounced';
+import { useApp } from '../lib/app-context';
 import type { TipoMovimiento } from '../types/api';
 
-type FiltroTipo = 'todos' | TipoMovimiento;
+type FiltroTipo = 'TODOS' | TipoMovimiento;
 
-export default function Movimientos({ onRegistrarMovimiento }: { onRegistrarMovimiento?: () => void } = {}) {
-  const { data: movimientos = [], isLoading, isError, refetch } = useMovimientos();
-  const [tipo, setTipo] = useState<FiltroTipo>('todos');
+const FILTROS: { id: FiltroTipo; label: string }[] = [
+  { id: 'TODOS', label: 'Todos' },
+  { id: 'ENTRADA', label: 'Entradas' },
+  { id: 'SALIDA', label: 'Salidas' },
+  { id: 'AJUSTE', label: 'Ajustes' },
+];
+
+export default function Movimientos() {
+  const { openMovimiento } = useApp();
+  const [tipo, setTipo] = useState<FiltroTipo>('TODOS');
   const [q, setQ] = useState('');
-  const [productoFilter, setProductoFilter] = useState<{ id: number; nombre: string } | null>(null);
+  const [page, setPage] = useState(0);
+  const qd = useDebounced(q.trim(), 300);
 
-  const list = useMemo(() => {
-    let out = movimientos;
-    if (tipo !== 'todos') out = out.filter((m) => m.tipo === tipo);
-    if (productoFilter) out = out.filter((m) => m.productoId === productoFilter.id);
-    if (q.trim()) {
-      const qq = q.toLowerCase();
-      out = out.filter(
-        (m) =>
-          m.productoNombre.toLowerCase().includes(qq) ||
-          (m.productoCodigo ?? '').toLowerCase().includes(qq) ||
-          (m.nota ?? '').toLowerCase().includes(qq) ||
-          m.usuarioNombre.toLowerCase().includes(qq),
-      );
-    }
-    return [...out].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-  }, [movimientos, tipo, productoFilter, q]);
-
-  const counts = useMemo(
-    () => ({
-      todos:   movimientos.length,
-      ENTRADA: movimientos.filter((m) => m.tipo === 'ENTRADA').length,
-      SALIDA:  movimientos.filter((m) => m.tipo === 'SALIDA').length,
-      AJUSTE:  movimientos.filter((m) => m.tipo === 'AJUSTE').length,
-    }),
-    [movimientos],
-  );
-
-  const FILTROS: { id: FiltroTipo; label: string }[] = [
-    { id: 'todos',   label: 'Todos' },
-    { id: 'ENTRADA', label: 'Entradas' },
-    { id: 'SALIDA',  label: 'Salidas' },
-    { id: 'AJUSTE',  label: 'Ajustes' },
-  ];
+  const { data, isLoading, isError, isFetching, refetch } = useMovimientos({
+    q: qd, tipo: tipo === 'TODOS' ? undefined : tipo, page,
+  });
+  const { data: conteo } = useConteoMovimientos();
+  const list = data?.content ?? [];
 
   return (
-    <main className="page" style={{ paddingTop: 80 }}>
+    <main className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">Trazabilidad</div>
           <h1 className="page-title">Movimientos</h1>
           <p className="page-sub">
-            {counts.todos} movimientos registrados · {counts.ENTRADA} entradas · {counts.SALIDA} salidas.
+            Cada cambio de stock, con quién y por qué. {conteo && <>{conteo.TODOS} en total.</>}
           </p>
         </div>
         <div className="page-actions">
-          <button className="btn btn-primary" onClick={onRegistrarMovimiento}>
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            Registrar movimiento
+          <button className="btn btn-primary" onClick={() => openMovimiento()}>
+            <Plus size={14} strokeWidth={2} aria-hidden="true" /> Registrar movimiento
           </button>
         </div>
       </div>
 
       <div className="filterbar">
         <div className="filter-search">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
-            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.6" />
-            <path d="m20 20-3.5-3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
+          <Search size={14} aria-hidden="true" />
           <input
+            type="search"
+            aria-label="Buscar movimientos"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar producto, nota o usuario…"
+            onChange={(e) => { setQ(e.target.value); setPage(0); }}
+            placeholder="Producto, código, nota o usuario…"
           />
         </div>
-
-        <div className="seg">
+        <div className="seg" role="group" aria-label="Tipo">
           {FILTROS.map((opt) => (
             <button
               key={opt.id}
+              aria-pressed={tipo === opt.id}
               className={`seg-btn${tipo === opt.id ? ' is-active' : ''}`}
-              onClick={() => setTipo(opt.id)}
+              onClick={() => { setTipo(opt.id); setPage(0); }}
             >
               {opt.label}
-              <span className="seg-count">{counts[opt.id as keyof typeof counts] ?? counts.todos}</span>
+              {conteo && <span className="seg-count">{conteo[opt.id]}</span>}
             </button>
           ))}
         </div>
-
-        {productoFilter && (
-          <div className="active-filter">
-            Producto: <strong>{productoFilter.nombre}</strong>
-            <button onClick={() => setProductoFilter(null)} aria-label="Quitar filtro">
-              <svg viewBox="0 0 24 24" width="11" height="11" fill="none">
-                <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-        )}
       </div>
 
-      <div className="card no-pad">
+      <div className={`card no-pad${isFetching && !isLoading ? ' is-refreshing' : ''}`}>
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -116,28 +84,18 @@ export default function Movimientos({ onRegistrarMovimiento }: { onRegistrarMovi
                 <th scope="col" style={{ width: 90, textAlign: 'right' }}>Cant.</th>
                 <th scope="col" style={{ width: 130, textAlign: 'right' }}>Stock</th>
                 <th scope="col" style={{ width: 160 }}>Usuario</th>
-                <th scope="col" style={{ width: 160 }}>Nota</th>
+                <th scope="col" style={{ width: 200 }}>Nota</th>
                 <th scope="col" style={{ width: 130, textAlign: 'right' }}>Fecha</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && Array.from({ length: 8 }).map((_, i) => (
-                <tr key={i}>
-                  <td><div className="skeleton" style={{ height: 14, width: 32 }} /></td>
-                  <td><div className="skeleton" style={{ height: 14, width: '70%' }} /></td>
-                  <td><div className="skeleton" style={{ height: 20, width: 70 }} /></td>
-                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 28, marginLeft: 'auto' }} /></td>
-                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 70, marginLeft: 'auto' }} /></td>
-                  <td><div className="skeleton" style={{ height: 14, width: 100 }} /></td>
-                  <td><div className="skeleton" style={{ height: 14, width: 80 }} /></td>
-                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 80, marginLeft: 'auto' }} /></td>
-                </tr>
+                <tr key={i}><td colSpan={8}><div className="skeleton" style={{ height: 14 }} /></td></tr>
               ))}
               {isError && (
                 <tr>
                   <td colSpan={8} className="empty-state">
-                    <div className="empty-title" style={{ color: 'var(--danger)' }}>Error al cargar movimientos</div>
-                    <div className="empty-sub">No se pudo conectar con el servidor.</div>
+                    <div className="empty-title" style={{ color: 'var(--danger)' }}>No se pudieron cargar los movimientos</div>
                     <button className="btn btn-ghost" style={{ marginTop: 12 }} onClick={() => refetch()}>Reintentar</button>
                   </td>
                 </tr>
@@ -146,57 +104,45 @@ export default function Movimientos({ onRegistrarMovimiento }: { onRegistrarMovi
                 <tr>
                   <td colSpan={8} className="empty-state">
                     <div className="empty-title">Sin movimientos</div>
-                    <div className="empty-sub">Probá quitar algunos filtros.</div>
+                    <div className="empty-sub">{q || tipo !== 'TODOS' ? 'Probá quitar filtros.' : 'Aparecen al vender, comprar o ajustar stock.'}</div>
                   </td>
                 </tr>
               )}
-              {!isLoading && !isError && list.map((m) => {
-                    const isNeg = m.tipo === 'SALIDA' || (m.tipo === 'AJUSTE' && m.cantidad < 0);
-                    const cantSign = m.tipo === 'SALIDA' ? '−' : m.tipo === 'ENTRADA' ? '+' : m.cantidad < 0 ? '−' : '+';
-                    const cantStr = `${cantSign}${Math.abs(m.cantidad)}`;
-
-                    return (
-                      <tr key={m.id}>
-                        <td className="td-id">#{m.id}</td>
-                        <td>
-                          <button
-                            className="link-cell"
-                            onClick={() => setProductoFilter({ id: m.productoId, nombre: m.productoNombre })}
-                          >
-                            <span className="td-product-name">{m.productoNombre}</span>
-                            {m.productoCodigo && (
-                              <span className="td-product-code">{m.productoCodigo}</span>
-                            )}
-                          </button>
-                        </td>
-                        <td><TipoChip tipo={m.tipo} /></td>
-                        <td className={`td-num ${isNeg ? 'is-neg' : 'is-pos'}`}>{cantStr}</td>
-                        <td className="td-num">
-                          <div className="td-stock">
-                            <span className="stock-prev">{m.stockAnterior}</span>
-                            <ArrowRight size={10} strokeWidth={2} style={{ color: 'var(--muted)' }} />
-                            <span>{m.stockPosterior}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="td-user">
-                            <div className="avatar avatar-sm">{initials(m.usuarioNombre)}</div>
-                            <span style={{ fontSize: 13 }}>{m.usuarioNombre}</span>
-                          </div>
-                        </td>
-                        <td className="td-muted" style={{ fontSize: 13 }}>{m.nota ?? '—'}</td>
-                        <td className="td-num td-muted" style={{ fontSize: 13 }}>{fmtDateTime(m.fecha)}</td>
-                      </tr>
-                  );
-                })}
+              {list.map((m) => {
+                const neg = m.stockPosterior < m.stockAnterior;
+                return (
+                  <tr key={m.id}>
+                    <td className="td-id">#{m.id}</td>
+                    <td>
+                      <div className="td-product">
+                        <Link className="td-product-name link" to={`/productos/${m.productoId}`}>{m.productoNombre}</Link>
+                        {m.productoCodigo && <span className="td-product-code">{m.productoCodigo}</span>}
+                      </div>
+                    </td>
+                    <td><TipoChip tipo={m.tipo} /></td>
+                    <td className={`td-num ${neg ? 'is-neg' : 'is-pos'}`}>{neg ? '−' : '+'}{Math.abs(m.stockPosterior - m.stockAnterior)}</td>
+                    <td className="td-num">
+                      <div className="td-stock">
+                        <span className="stock-prev">{m.stockAnterior}</span>
+                        <ArrowRight size={10} aria-hidden="true" />
+                        <span>{m.stockPosterior}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="td-user">
+                        <div className="avatar avatar-sm" aria-hidden="true">{initials(m.usuarioNombre)}</div>
+                        <span>{m.usuarioNombre}</span>
+                      </div>
+                    </td>
+                    <td className="td-muted td-wrap">{m.nota ?? '—'}</td>
+                    <td className="td-num td-muted">{fmtDateTime(m.fecha)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-        {!isLoading && !isError && (
-          <div className="table-foot">
-            <span>{list.length} movimientos</span>
-          </div>
-        )}
+        {data && <Pager page={data} onPage={setPage} noun="movimientos" />}
       </div>
     </main>
   );

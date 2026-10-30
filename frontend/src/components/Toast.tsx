@@ -41,13 +41,13 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
   if (!toast) return null;
 
   return (
-    <div className="toast-container" onClick={onDismiss} aria-live="polite">
-      <div className={`toast toast-${toast.kind}`} role="status">
+    <div className="toast-container" aria-live="polite">
+      <div className={`toast toast-${toast.kind}`} role={toast.kind === 'error' ? 'alert' : 'status'}>
         <div className={`toast-icon toast-icon-${toast.kind}`}>
           {ICONS[toast.kind]}
         </div>
         <div className="toast-title">{toast.title}</div>
-        <button className="toast-close" aria-label="Cerrar notificación">
+        <button className="toast-close" onClick={onDismiss} aria-label="Cerrar notificación">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none">
             <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
