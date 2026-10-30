@@ -17,7 +17,7 @@ docker run -d --name stockapi-pg \
 ```
 
 Puerto 5433 para no chocar con un Postgres local. No hace falta correr
-`docs/db-setup.sql`: Hibernate crea las tablas (`ddl-auto=update`) y
+`docs/db-setup.sql`: Flyway aplica las migraciones (`db/migration`) al arrancar y
 `DataInitializer` siembra el admin en el primer arranque.
 
 Si el contenedor ya existe: `docker start stockapi-pg`.

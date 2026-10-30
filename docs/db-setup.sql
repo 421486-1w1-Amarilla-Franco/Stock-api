@@ -3,8 +3,8 @@
 -- Ejecutar en Supabase SQL Editor o psql
 -- ============================================================
 
--- Las tablas son creadas automaticamente por Hibernate al
--- iniciar la aplicacion (spring.jpa.hibernate.ddl-auto=update)
+-- OBSOLETO: el esquema ahora lo maneja Flyway
+-- (backend/src/main/resources/db/migration). Se deja solo como referencia.
 --
 -- Si preferis crearlas manualmente, usa el bloque de abajo.
 -- ============================================================

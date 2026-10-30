@@ -1,11 +1,23 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mvn clean *)"
+      "Bash(mvn clean *)",
+      "Bash(npm install *)",
+      "Bash(psql --version)",
+      "Bash(curl *)",
+      "Bash(nslookup stock-backend-pxpi.onrender.com)",
+      "Bash(npm run *)",
+      "Bash(\"/c/Program Files/Docker/Docker/Docker Desktop.exe\")",
+      "Bash(docker run *)",
+      "Bash(mvn -q spring-boot:run -Dspring-boot.run.profiles=local)",
+      "Bash(docker stop *)",
+      "Bash(git check-ignore *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "swagger-api"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

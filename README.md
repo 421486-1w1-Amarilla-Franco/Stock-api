@@ -45,7 +45,7 @@ stock-api/
 │       ├── styles/           # index.css (design tokens + componentes)
 │       └── types/            # api.ts (interfaces TypeScript)
 └── docs/
-    ├── db-setup.sql          # Schema inicial de la base de datos
+    ├── db-setup.sql          # Referencia histórica (el esquema lo maneja Flyway)
     └── design/
         ├── handoff/          # Especificaciones de diseño por fase (01–08)
         └── dashboard/        # Prototipo HTML del dashboard
@@ -66,9 +66,9 @@ stock-api/
 
 ### 1. Base de datos
 
-Ejecutar `docs/db-setup.sql` en tu instancia de PostgreSQL para crear el schema inicial.
+El esquema lo crea y actualiza **Flyway** al arrancar el backend (migraciones en `backend/src/main/resources/db/migration`). Solo hace falta una base PostgreSQL vacía (o la existente: `baseline-on-migrate` la adopta sin perder datos).
 
-Si usás Supabase, podés correrlo directamente desde el SQL Editor del dashboard.
+Para cambiar el esquema, agregá un archivo `V<n>__descripcion.sql` nuevo; nunca edites una migración ya aplicada. Hibernate corre en modo `validate`.
 
 ### 2. Backend
 

@@ -1,0 +1,7 @@
+[mcp_servers.swagger-api]
+command = "npx"
+args = [
+    "-y",
+    "@amrsa1/swagger-mcp",
+    "http://localhost:8080/api-docs",
+]
