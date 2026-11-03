@@ -1,13 +1,15 @@
 import { Plus } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import type { ProductoResponse } from '../types/api';
 
 interface LowStockProps {
   productos: ProductoResponse[];
   isLoading?: boolean;
   onAddStock?: (productoId: number) => void;
+  onVerTodos?: () => void;
 }
 
-export default function LowStock({ productos, isLoading, onAddStock }: LowStockProps) {
+export default function LowStock({ productos, isLoading, onAddStock, onVerTodos }: LowStockProps) {
   const items = [...productos]
     .filter((p) => p.stockActual <= p.stockMinimo)
     .sort((a, b) => a.stockActual / a.stockMinimo - b.stockActual / b.stockMinimo)
@@ -37,9 +39,11 @@ export default function LowStock({ productos, isLoading, onAddStock }: LowStockP
       <div className="card-head">
         <div>
           <div className="card-title">Productos bajo stock</div>
-          <div className="card-sub">{items.length} items requieren reposición</div>
+          <div className="card-sub">
+            {items.length === 0 ? 'Todo el stock está por encima del mínimo' : `${productos.length} requiere${productos.length === 1 ? '' : 'n'} reposición`}
+          </div>
         </div>
-        <button className="link-btn">Ver todos →</button>
+        <button className="link-btn" onClick={onVerTodos}>Armar pedido →</button>
       </div>
 
       <ul className="lowstock-list">
@@ -49,7 +53,7 @@ export default function LowStock({ productos, isLoading, onAddStock }: LowStockP
           return (
             <li key={p.id} className="lowstock-row">
               <div className="lowstock-main">
-                <div className="lowstock-name" title={p.nombre}>{p.nombre}</div>
+                <Link className="lowstock-name" title={p.nombre} to={`/productos/${p.id}`}>{p.nombre}</Link>
                 <div className="lowstock-meta">
                   <span className="chip chip-ghost">{p.codigo}</span>
                   <span className={`chip ${p.categoria === 'LUBRICANTE' ? 'chip-lub' : 'chip-rep'}`}>
@@ -69,7 +73,7 @@ export default function LowStock({ productos, isLoading, onAddStock }: LowStockP
                   />
                 </div>
               </div>
-              <button className="row-action" aria-label="Reponer" onClick={() => onAddStock?.(p.id)}>
+              <button className="row-action" aria-label={`Reponer ${p.nombre}`} title="Reponer" onClick={() => onAddStock?.(p.id)}>
                 <Plus size={14} strokeWidth={2} />
               </button>
             </li>
@@ -77,9 +81,7 @@ export default function LowStock({ productos, isLoading, onAddStock }: LowStockP
         })}
 
         {items.length === 0 && (
-          <li style={{ padding: '24px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-            Sin productos bajo stock mínimo
-          </li>
+          <li className="card-empty">Nada que reponer por ahora.</li>
         )}
       </ul>
     </div>

@@ -1,12 +1,15 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Download, Trash2, RotateCcw } from 'lucide-react';
+import { useApp } from '../lib/app-context';
+import { apiError } from '../lib/errors';
 import { exportCSV } from '../lib/export';
 import {
   useProductos, useCrearProducto, useActualizarProducto,
   useEliminarProducto, useRestaurarProducto,
   type ProductoRequest,
 } from '../hooks/useProductos';
-import type { ProductoResponse, Categoria, AuthUser } from '../types/api';
+import type { ProductoResponse, Categoria } from '../types/api';
 import { fmtARS } from '../lib/format';
 import Drawer from '../components/Drawer';
 import ConfirmModal from '../components/ConfirmModal';
@@ -35,23 +38,24 @@ function SortableTh({ label, k, sortBy, onSort, style }: {
 }) {
   const active = sortBy.key === k;
   return (
-    <th scope="col" style={style} className="sortable-th" onClick={() => onSort(k)}>
-      <span>{label}</span>
-      <svg viewBox="0 0 12 12" width="10" height="10" fill="none" className={`sort-icon${active ? ' is-active' : ''}`}>
-        {active && sortBy.dir === 'desc'
-          ? <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-          : <path d="M3 7l3-3 3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>}
-      </svg>
+    <th scope="col" style={style} className="sortable-th"
+      aria-sort={active ? (sortBy.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className="th-sort" onClick={() => onSort(k)}>
+        {label}
+        <svg viewBox="0 0 12 12" width="10" height="10" fill="none" aria-hidden="true" className={`sort-icon${active ? ' is-active' : ''}`}>
+          {active && sortBy.dir === 'desc'
+            ? <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            : <path d="M3 7l3-3 3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>}
+        </svg>
+      </button>
     </th>
   );
 }
 
-function ProductoDrawer({ open, onClose, producto, onAjustarStock, onSuccess, onError }: {
+export function ProductoDrawer({ open, onClose, producto }: {
   open: boolean; onClose: () => void; producto: ProductoResponse | null;
-  onAjustarStock?: (productoId: number) => void;
-  onSuccess?: (msg: string) => void;
-  onError?: (msg: string) => void;
 }) {
+  const { toast, openMovimiento } = useApp();
   const isEdit = !!producto;
   const [form, setForm] = useState<ProductoRequest>({ ...EMPTY_FORM });
   const crear = useCrearProducto();
@@ -89,13 +93,13 @@ function ProductoDrawer({ open, onClose, producto, onAjustarStock, onSuccess, on
     if (!form.nombre.trim()) return;
     if (isEdit && producto) {
       actualizar.mutate({ id: producto.id, data: form }, {
-        onSuccess: () => { onSuccess?.(`${form.nombre} actualizado`); onClose(); },
-        onError: (err: unknown) => onError?.((err as { response?: { data?: { mensaje?: string } } })?.response?.data?.mensaje ?? 'Error al actualizar'),
+        onSuccess: () => { toast('success', `${form.nombre} actualizado`); onClose(); },
+        onError: (err) => toast('error', apiError(err, 'Error al actualizar')),
       });
     } else {
       crear.mutate(form, {
-        onSuccess: (data) => { onSuccess?.(`Producto creado · Stock inicial: ${data.stockActual}`); onClose(); },
-        onError: (err: unknown) => onError?.((err as { response?: { data?: { mensaje?: string } } })?.response?.data?.mensaje ?? 'Error al crear producto'),
+        onSuccess: (data) => { toast('success', `Producto creado · Stock inicial: ${data.stockActual}`); onClose(); },
+        onError: (err) => toast('error', apiError(err, 'Error al crear producto')),
       });
     }
   };
@@ -112,7 +116,7 @@ function ProductoDrawer({ open, onClose, producto, onAjustarStock, onSuccess, on
             <button
               className="btn btn-ghost"
               style={{ marginRight: 'auto' }}
-              onClick={() => { onClose(); onAjustarStock?.(producto.id); }}
+              onClick={() => { onClose(); openMovimiento(producto.id, 'AJUSTE'); }}
             >
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
                 <path d="M4 12h16M9 6l-5 6 5 6M15 6l5 6-5 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -192,12 +196,20 @@ function ProductoDrawer({ open, onClose, producto, onAjustarStock, onSuccess, on
         <div className="form-section">
           <div className="form-section-title">Stock</div>
           <div className="form-row form-row-2">
-            <label className="field">
-              <span className="field-label">Stock actual</span>
-              <div className="field-control">
-                <input className="input" type="number" min="0" value={form.stockActual} onChange={setNum('stockActual')}/>
+            {isEdit ? (
+              <div className="field">
+                <span className="field-label">Stock actual</span>
+                <div className="stock-readonly"><strong>{form.stockActual}</strong> u.</div>
+                <span className="field-hint">Cambia con ventas, compras o “Ajustar stock”: así queda en el historial.</span>
               </div>
-            </label>
+            ) : (
+              <label className="field">
+                <span className="field-label">Stock inicial</span>
+                <div className="field-control">
+                  <input className="input" type="number" min="0" value={form.stockActual} onChange={setNum('stockActual')}/>
+                </div>
+              </label>
+            )}
             <label className="field">
               <span className="field-label">Stock mínimo</span>
               <div className="field-control">
@@ -220,17 +232,15 @@ function ProductoDrawer({ open, onClose, producto, onAjustarStock, onSuccess, on
   );
 }
 
-export default function Productos({ onAjustarStock, user, onSuccess, onInfo, onError }: {
-  onAjustarStock?: (productoId: number) => void;
-  user?: AuthUser | null;
-  onSuccess?: (msg: string) => void;
-  onInfo?: (msg: string) => void;
-  onError?: (msg: string) => void;
-} = {}) {
+export default function Productos() {
+  const { isAdmin, toast } = useApp();
+  const navigate = useNavigate();
+  const onSuccess = (m: string) => toast('success', m);
+  const onInfo = (m: string) => toast('info', m);
+  const onError = (m: string) => toast('error', m);
   const { data: productos = [], isLoading } = useProductos();
   const eliminar = useEliminarProducto();
   const restaurar = useRestaurarProducto();
-  const isAdmin = user?.rol === 'ADMIN';
 
   const [q, setQ] = useState('');
   const [filtro, setFiltro] = useState<Filtro>('activos');
@@ -274,9 +284,8 @@ export default function Productos({ onAjustarStock, user, onSuccess, onInfo, onE
     <main className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">Catálogo</div>
           <h1 className="page-title">Productos</h1>
-          <p className="page-sub">{countAll} activos · {countBajo} bajo stock · {countInact} inactivos.</p>
+          <p className="page-sub">{countAll} activo{countAll === 1 ? '' : 's'} · {countBajo} bajo stock · {countInact} inactivo{countInact === 1 ? '' : 's'}.</p>
         </div>
         <div className="page-actions">
           <button
@@ -317,7 +326,7 @@ export default function Productos({ onAjustarStock, user, onSuccess, onInfo, onE
             <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.6"/>
             <path d="m20 20-3.5-3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
           </svg>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre, código o descripción…"/>
+          <input type="search" aria-label="Buscar productos" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre, código o descripción…"/>
         </div>
         <div className="seg">
           <button className={`seg-btn${filtro === 'activos' ? ' is-active' : ''}`} onClick={() => setFiltro('activos')}>
@@ -354,15 +363,33 @@ export default function Productos({ onAjustarStock, user, onSuccess, onInfo, onE
               </tr>
             </thead>
             <tbody>
-              {isLoading && (
-                <tr><td colSpan={7} className="empty-state">
-                  <div className="empty-title">Cargando…</div>
-                </td></tr>
-              )}
+              {isLoading && Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i}>
+                  <td><div className="skeleton" style={{ height: 14, width: '60%' }} /></td>
+                  <td><div className="skeleton" style={{ height: 18, width: 72 }} /></td>
+                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 64, marginLeft: 'auto' }} /></td>
+                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 72, marginLeft: 'auto' }} /></td>
+                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 56, marginLeft: 'auto' }} /></td>
+                  <td><div className="skeleton" style={{ height: 20, width: 48 }} /></td>
+                  <td />
+                </tr>
+              ))}
               {!isLoading && filtered.length === 0 && (
                 <tr><td colSpan={7} className="empty-state">
-                  <div className="empty-title">Nada por acá</div>
-                  <div className="empty-sub">Ajustá los filtros o creá un producto nuevo.</div>
+                  {productos.length === 0 ? (
+                    <>
+                      <div className="empty-title">Todavía no cargaste productos</div>
+                      <div className="empty-sub">Creá el primero para empezar a controlar stock y vender.</div>
+                      <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={() => setDrawer({ open: true, producto: null })}>
+                        <Plus size={14} strokeWidth={2}/> Nuevo producto
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="empty-title">Ningún producto coincide</div>
+                      <div className="empty-sub">Probá con otra búsqueda o cambiá los filtros.</div>
+                    </>
+                  )}
                 </td></tr>
               )}
               {filtered.map((p) => {
@@ -372,10 +399,10 @@ export default function Productos({ onAjustarStock, user, onSuccess, onInfo, onE
                 return (
                   <tr
                     key={p.id}
-                    onClick={() => setDrawer({ open: true, producto: p })}
+                    onClick={() => navigate(`/productos/${p.id}`)}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDrawer({ open: true, producto: p }); } }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/productos/${p.id}`); } }}
                   >
                     <td>
                       <div className="td-product">
@@ -414,8 +441,8 @@ export default function Productos({ onAjustarStock, user, onSuccess, onInfo, onE
                           : (
                               <button className="row-action row-action-success" aria-label="Reactivar" title="Reactivar"
                                 onClick={() => restaurar.mutate(p.id, {
-                                  onSuccess: () => onSuccess?.(`${p.nombre} reactivado`),
-                                  onError: () => onError?.('Error al reactivar'),
+                                  onSuccess: () => onSuccess(`${p.nombre} reactivado`),
+                                  onError: () => onError('Error al reactivar'),
                                 })}>
                                 <RotateCcw size={14} strokeWidth={1.8}/>
                               </button>
@@ -438,9 +465,6 @@ export default function Productos({ onAjustarStock, user, onSuccess, onInfo, onE
         open={drawer.open}
         producto={drawer.producto}
         onClose={() => setDrawer({ open: false, producto: null })}
-        onAjustarStock={onAjustarStock}
-        onSuccess={onSuccess}
-        onError={onError}
       />
 
       <ConfirmModal
@@ -453,8 +477,8 @@ export default function Productos({ onAjustarStock, user, onSuccess, onInfo, onE
           if (confirm.producto) {
             const nombre = confirm.producto.nombre;
             eliminar.mutate(confirm.producto.id, {
-              onSuccess: () => onInfo?.(`${nombre} dado de baja`),
-              onError: (err: unknown) => onError?.((err as { response?: { data?: { mensaje?: string } } })?.response?.data?.mensaje ?? 'Error al dar de baja'),
+              onSuccess: () => onInfo(`${nombre} dado de baja`),
+              onError: (err) => onError(apiError(err, "Error al dar de baja")),
             });
           }
           setConfirm({ open: false, producto: null });

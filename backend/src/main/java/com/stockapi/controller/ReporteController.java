@@ -2,6 +2,7 @@ package com.stockapi.controller;
 
 import com.stockapi.dto.producto.ProductoResponse;
 import com.stockapi.dto.reporte.ReporteVentasResponse;
+import com.stockapi.dto.reporte.ResumenResponse;
 import com.stockapi.service.ReporteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -29,6 +30,12 @@ public class ReporteController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
         return ResponseEntity.ok(reporteService.reporteVentas(desde, hasta));
+    }
+
+    @GetMapping("/resumen")
+    @Operation(summary = "KPIs del dashboard: últimos N días contra el período anterior")
+    public ResponseEntity<ResumenResponse> resumen(@RequestParam(defaultValue = "30") int dias) {
+        return ResponseEntity.ok(reporteService.resumen(dias));
     }
 
     @GetMapping("/stock")

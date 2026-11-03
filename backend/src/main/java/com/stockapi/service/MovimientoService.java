@@ -1,7 +1,9 @@
 package com.stockapi.service;
 
+import com.stockapi.dto.PageResponse;
 import com.stockapi.dto.movimiento.MovimientoRequest;
 import com.stockapi.dto.movimiento.MovimientoResponse;
+import com.stockapi.exception.ConflictException;
 import com.stockapi.exception.ResourceNotFoundException;
 import com.stockapi.exception.StockInsuficienteException;
 import com.stockapi.model.Movimiento;
@@ -9,13 +11,21 @@ import com.stockapi.model.Producto;
 import com.stockapi.model.Usuario;
 import com.stockapi.repository.MovimientoRepository;
 import com.stockapi.repository.ProductoRepository;
-import com.stockapi.repository.UsuarioRepository;
+import com.stockapi.security.UsuarioActual;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,13 +34,48 @@ public class MovimientoService {
 
     private final MovimientoRepository movimientoRepository;
     private final ProductoRepository productoRepository;
-    private final UsuarioRepository usuarioRepository;
+    private final UsuarioActual usuarioActual;
 
+    /**
+     * Listado paginado con filtros opcionales.
+     * q busca en producto (nombre/código), nota y usuario.
+     */
     @Transactional(readOnly = true)
-    public List<MovimientoResponse> listarTodos() {
-        return movimientoRepository.findAll().stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public PageResponse<MovimientoResponse> buscar(String q, Movimiento.TipoMovimiento tipo, Long productoId,
+                                                   LocalDate desde, LocalDate hasta, Pageable pageable) {
+        Specification<Movimiento> spec = (root, query, cb) -> {
+            List<Predicate> ps = new ArrayList<>();
+            if (tipo != null) ps.add(cb.equal(root.get("tipo"), tipo));
+            if (productoId != null) ps.add(cb.equal(root.get("producto").get("id"), productoId));
+            if (desde != null) ps.add(cb.greaterThanOrEqualTo(root.<java.time.LocalDateTime>get("fecha"), desde.atStartOfDay()));
+            if (hasta != null) ps.add(cb.lessThan(root.<java.time.LocalDateTime>get("fecha"), hasta.plusDays(1).atStartOfDay()));
+            if (q != null && !q.isBlank()) {
+                String like = "%" + q.trim().toLowerCase() + "%";
+                ps.add(cb.or(
+                        cb.like(cb.lower(root.get("producto").<String>get("nombre")), like),
+                        cb.like(cb.lower(cb.coalesce(root.get("producto").<String>get("codigo"), "")), like),
+                        cb.like(cb.lower(cb.coalesce(root.<String>get("nota"), "")), like),
+                        cb.like(cb.lower(root.get("usuario").<String>get("nombre")), like)));
+            }
+            return cb.and(ps.toArray(Predicate[]::new));
+        };
+        Pageable ordenado = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "fecha", "id"));
+        return PageResponse.of(movimientoRepository.findAll(spec, ordenado), this::toResponse);
+    }
+
+    /** Conteo por tipo, para los filtros del listado. */
+    @Transactional(readOnly = true)
+    public Map<String, Long> conteoPorTipo() {
+        Map<String, Long> out = new LinkedHashMap<>();
+        long total = 0;
+        for (Movimiento.TipoMovimiento t : Movimiento.TipoMovimiento.values()) {
+            long n = movimientoRepository.countByTipo(t);
+            out.put(t.name(), n);
+            total += n;
+        }
+        out.put("TODOS", total);
+        return out;
     }
 
     @Transactional(readOnly = true)
@@ -42,12 +87,20 @@ public class MovimientoService {
 
     @Transactional
     public MovimientoResponse registrar(MovimientoRequest request) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+        Usuario usuario = usuarioActual.get();
 
-        Producto producto = productoRepository.findById(request.getProductoId())
+        if (request.getCantidad() == 0) {
+            throw new IllegalArgumentException("La cantidad no puede ser 0.");
+        }
+        if (request.getTipo() != Movimiento.TipoMovimiento.AJUSTE && request.getCantidad() < 0) {
+            throw new IllegalArgumentException("En entradas y salidas la cantidad debe ser positiva.");
+        }
+
+        Producto producto = productoRepository.findByIdForUpdate(request.getProductoId())
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + request.getProductoId()));
+        if (!Boolean.TRUE.equals(producto.getActivo())) {
+            throw new ConflictException("El producto \"" + producto.getNombre() + "\" está dado de baja.");
+        }
 
         int stockAnterior = producto.getStockActual();
         int stockPosterior = calcularStockPosterior(producto, request.getTipo(), request.getCantidad(), stockAnterior);

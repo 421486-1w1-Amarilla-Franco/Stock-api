@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { Plus, Download } from 'lucide-react';
 import { exportCSV } from '../lib/export';
 import { useUsuarios, useCrearUsuario, useActualizarUsuario, useEliminarUsuario } from '../hooks/useUsuarios';
-import type { UsuarioResponse, AuthUser } from '../types/api';
+import type { UsuarioResponse } from '../types/api';
+import { useApp } from '../lib/app-context';
 import { fmtDateTime } from '../lib/format';
 import { initials } from '../lib/format';
 import Drawer from '../components/Drawer';
@@ -215,14 +216,11 @@ function UsuarioDrawer({
   );
 }
 
-export default function Usuarios({
-  user, onSuccess, onInfo, onError,
-}: {
-  user?: AuthUser | null;
-  onSuccess?: (msg: string) => void;
-  onInfo?: (msg: string) => void;
-  onError?: (msg: string) => void;
-}) {
+export default function Usuarios() {
+  const { user, toast } = useApp();
+  const onSuccess = (m: string) => toast('success', m);
+  const onInfo = (m: string) => toast('info', m);
+  const onError = (m: string) => toast('error', m);
   const { data: usuarios = [], isLoading, isError, refetch } = useUsuarios();
   const eliminar = useEliminarUsuario();
 
@@ -267,10 +265,9 @@ export default function Usuarios({
   };
 
   return (
-    <main className="page" style={{ paddingTop: 80 }}>
+    <main className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">Administración</div>
           <h1 className="page-title">Usuarios</h1>
           <p className="page-sub">
             {counts.activos} activo{counts.activos === 1 ? '' : 's'} · {counts.admins} admin{counts.admins === 1 ? '' : 's'} · {counts.operadores} operador{counts.operadores === 1 ? '' : 'es'}.
@@ -309,7 +306,7 @@ export default function Usuarios({
             <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.6"/>
             <path d="m20 20-3.5-3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
           </svg>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o email…" />
+          <input type="search" aria-label="Buscar usuarios" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o email…" />
         </div>
         <div className="seg">
           {([

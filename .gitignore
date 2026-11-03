@@ -22,7 +22,8 @@ frontend/dist/
 frontend/.vite/
 
 # ── Claude Code internal ─────────────────────────────────────
-.claude/
+.claude/*
+!.claude/skills/
 .mcp.json
 
 # ── OS ──────────────────────────────────────────────────────

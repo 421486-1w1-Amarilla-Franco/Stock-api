@@ -1,253 +1,205 @@
-import { useState, useMemo } from 'react';
-import { useVentas, useEliminarVenta } from '../hooks/useVentas';
+import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Download, Plus, Search, Trash2 } from 'lucide-react';
+import { useVentas, useVenta, useEliminarVenta } from '../hooks/useVentas';
 import Drawer from '../components/Drawer';
 import ConfirmModal from '../components/ConfirmModal';
-import { fmtARS, fmtDateTime, fmtDateTimeFull, initials } from '../lib/format';
+import Pager from '../components/Pager';
+import { fmtARS, fmtDateTime, fmtDateTimeFull } from '../lib/format';
 import { exportCSV } from '../lib/export';
-import type { VentaResponse, AuthUser } from '../types/api';
+import { apiError } from '../lib/errors';
+import { useDebounced } from '../lib/useDebounced';
+import { useApp } from '../lib/app-context';
+import { MEDIOS_PAGO, type EstadoVenta, type MedioPago, type VentaResponse } from '../types/api';
 
-// Maps backend estado → UI display estado
-type UIEstado = 'ACTIVA' | 'ELIMINADA';
+const medioLabel = (m: MedioPago) => MEDIOS_PAGO.find((x) => x.id === m)?.label ?? m;
 
-function toUIEstado(estado: string): UIEstado {
-  if (estado === 'ANULADA') return 'ELIMINADA';
-  return 'ACTIVA'; // COMPLETADA + PENDIENTE → ACTIVA
-}
-
-const EstadoChip = ({ estado }: { estado: UIEstado }) => (
-  <span className={`estado-chip ${estado === 'ACTIVA' ? 'estado-done' : 'estado-cancel'}`}>
-    <span className="estado-dot" />
-    {estado === 'ACTIVA' ? 'Activa' : 'Eliminada'}
+const EstadoChip = ({ estado }: { estado: EstadoVenta }) => (
+  <span className={`estado-chip ${estado === 'ANULADA' ? 'estado-cancel' : 'estado-done'}`}>
+    <span className="estado-dot" aria-hidden="true" />
+    {estado === 'ANULADA' ? 'Anulada' : 'Completada'}
   </span>
 );
 
-type FiltroKey = 'todas' | 'ACTIVA' | 'ELIMINADA';
-
-interface DrawerState {
-  open: boolean;
-  venta: VentaResponse | null;
-}
-
-function VentaDrawer({
-  open, venta, onClose, isAdmin, onInfo, onError,
-}: {
-  open: boolean;
-  venta: VentaResponse | null;
-  onClose: () => void;
-  isAdmin: boolean;
-  onInfo?: (msg: string) => void;
-  onError?: (msg: string) => void;
-}) {
+function VentaDrawer({ ventaId, onClose }: { ventaId?: number; onClose: () => void }) {
+  const { isAdmin, toast } = useApp();
+  const { data: venta, isLoading, isError } = useVenta(ventaId);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const eliminar = useEliminarVenta();
+  const open = !!ventaId;
 
-  if (!venta) return null;
-
-  const uiEstado = toUIEstado(venta.estado);
-
-  const handleEliminar = () => {
-    const n = venta.detalles.length;
-    eliminar.mutate(venta.id as unknown as number, {
+  const handleAnular = () => {
+    if (!venta) return;
+    eliminar.mutate(venta.id, {
       onSuccess: () => {
-        onInfo?.(`Venta #${venta.id} eliminada · Stock restaurado en ${n} producto${n === 1 ? '' : 's'}`);
+        toast('info', `Venta #${venta.id} anulada · stock devuelto`);
         setConfirmOpen(false);
         onClose();
       },
-      onError: (err: unknown) => {
-        onError?.((err as { response?: { data?: { mensaje?: string } } })?.response?.data?.mensaje ?? 'Error al eliminar la venta');
-      },
+      onError: (err) => { setConfirmOpen(false); toast('error', apiError(err, 'Error al anular la venta')); },
     });
   };
 
-  const footer =
-    uiEstado === 'ACTIVA' && isAdmin ? (
-      <>
-        <button className="btn btn-ghost" onClick={onClose}>Cerrar</button>
-        <button
-          className="btn btn-danger"
-          onClick={() => setConfirmOpen(true)}
-          disabled={eliminar.isPending}
-        >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
-            <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          Eliminar venta
-        </button>
-      </>
-    ) : (
-      <button className="btn btn-ghost" onClick={onClose} style={{ marginLeft: 'auto' }}>
-        Cerrar
-      </button>
-    );
+  const puedeAnular = venta && venta.estado !== 'ANULADA' && isAdmin;
 
   return (
     <>
       <Drawer
         open={open}
         onClose={onClose}
-        title={`Venta #${venta.id}`}
-        subtitle={`${fmtDateTimeFull(venta.fecha)} · ${venta.usuarioNombre}`}
+        title={venta ? `Venta #${venta.id}` : `Venta #${ventaId ?? ''}`}
+        subtitle={venta ? `${fmtDateTimeFull(venta.fecha)} · ${venta.usuarioNombre}` : undefined}
         width={540}
-        footer={footer}
-      >
-        <div className="venta-detail">
-          <div className="venta-detail-status">
-            <EstadoChip estado={uiEstado} />
-            {uiEstado === 'ELIMINADA' && (
-              <span className="venta-detail-hint">Stock devuelto al inventario</span>
+        footer={
+          <>
+            {puedeAnular && (
+              <button className="btn btn-danger" style={{ marginRight: 'auto' }} onClick={() => setConfirmOpen(true)} disabled={eliminar.isPending}>
+                <Trash2 size={14} aria-hidden="true" /> Anular venta
+              </button>
             )}
-          </div>
+            <button className="btn btn-ghost" onClick={onClose}>Cerrar</button>
+          </>
+        }
+      >
+        {isLoading && <div className="skeleton" style={{ height: 120 }} />}
+        {isError && <div className="hint hint-error">No se encontró la venta #{ventaId}.</div>}
+        {venta && (
+          <div className="venta-detail">
+            <div className="venta-detail-status">
+              <EstadoChip estado={venta.estado} />
+              <span className="chip chip-ghost">{medioLabel(venta.medioPago)}</span>
+              {venta.estado === 'ANULADA' && <span className="venta-detail-hint">Stock devuelto al inventario</span>}
+            </div>
 
-          {venta.observaciones && (
+            {(venta.clienteNombre || venta.vehiculoPatente) && (
+              <div className="venta-detail-obs">
+                {venta.clienteId && <Link className="link" to={`/clientes/${venta.clienteId}`}>{venta.clienteNombre}</Link>}
+                {venta.vehiculoPatente && (
+                  <> · <span className="mono">{venta.vehiculoPatente}</span> {venta.vehiculoDescripcion}
+                    {venta.kmVehiculo != null && ` · ${venta.kmVehiculo.toLocaleString('es-AR')} km`}</>
+                )}
+              </div>
+            )}
+
+            {venta.observaciones && <div className="venta-detail-obs">{venta.observaciones}</div>}
+
             <div>
-              <div className="venta-detail-label" style={{ marginBottom: 8 }}>Observaciones</div>
-              <div className="venta-detail-obs">{venta.observaciones}</div>
-            </div>
-          )}
-
-          <div>
-            <div className="venta-detail-label" style={{ marginBottom: 8 }}>
-              Items ({venta.detalles.length})
-            </div>
-            <div className="venta-lines">
-              {venta.detalles.map((d) => (
-                <div key={d.id} className="venta-line">
-                  <div className="venta-line-main">
-                    <div className="venta-line-name">{d.productoNombre}</div>
-                    <div className="venta-line-meta">
-                      {d.productoCodigo && (
-                        <>
-                          <span className="mono">{d.productoCodigo}</span>
-                          <span>·</span>
-                        </>
-                      )}
-                      <span>{d.cantidad} × {fmtARS(d.precioUnitario)}</span>
+              <div className="venta-detail-label" style={{ marginBottom: 8 }}>Ítems ({venta.cantidadItems})</div>
+              <div className="venta-lines">
+                {venta.detalles.map((d) => (
+                  <div key={d.id} className="venta-line">
+                    <div className="venta-line-main">
+                      <Link className="venta-line-name link" to={`/productos/${d.productoId}`}>{d.productoNombre}</Link>
+                      <div className="venta-line-meta">
+                        {d.productoCodigo && <><span className="mono">{d.productoCodigo}</span><span>·</span></>}
+                        <span>{d.cantidad} × {fmtARS(d.precioUnitario)}</span>
+                      </div>
                     </div>
+                    <div className="venta-line-sub">{fmtARS(d.subtotal)}</div>
                   </div>
-                  <div className="venta-line-sub">{fmtARS(d.subtotal)}</div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="venta-detail-totals">
-            <div className="venta-total-row">
-              <span>Subtotal</span>
-              <span className="mono">{fmtARS(venta.total)}</span>
-            </div>
-            <div className="venta-total-row venta-total-main">
-              <span>Total</span>
-              <strong>{fmtARS(venta.total)}</strong>
+            <div className="venta-detail-totals">
+              {venta.manoObra > 0 && (
+                <>
+                  <div className="venta-total-row"><span>Repuestos</span><span className="num">{fmtARS(venta.total - venta.manoObra)}</span></div>
+                  <div className="venta-total-row"><span>Mano de obra</span><span className="num">{fmtARS(venta.manoObra)}</span></div>
+                </>
+              )}
+              <div className="venta-total-row venta-total-main"><span>Total</span><strong className="num">{fmtARS(venta.total)}</strong></div>
+              {isAdmin && (
+                <div className="venta-total-row muted"><span>Ganancia bruta</span><span className="num">{fmtARS(venta.margen)}</span></div>
+              )}
             </div>
           </div>
-        </div>
+        )}
       </Drawer>
 
       <ConfirmModal
         open={confirmOpen}
-        title={`Eliminar venta #${venta.id}`}
-        description="La venta se marcará como eliminada y el stock volverá al inventario. Queda registro en el historial."
-        confirmLabel="Eliminar"
-        cancelLabel="Cancelar"
+        title={`Anular venta #${venta?.id ?? ''}`}
+        description="La venta queda anulada y el stock vuelve al inventario. Queda registro en el historial."
+        confirmLabel="Anular"
         danger
         onCancel={() => setConfirmOpen(false)}
-        onConfirm={handleEliminar}
+        onConfirm={handleAnular}
       />
     </>
   );
 }
 
-export default function Ventas({ onNuevaVenta, user, onInfo, onError }: {
-  onNuevaVenta?: () => void;
-  user?: AuthUser | null;
-  onInfo?: (msg: string) => void;
-  onError?: (msg: string) => void;
-}) {
-  const { data: ventas = [], isLoading, isError, refetch } = useVentas();
-  const [filtro, setFiltro] = useState<FiltroKey>('todas');
-  const [drawer, setDrawer] = useState<DrawerState>({ open: false, venta: null });
-  const isAdmin = user?.rol === 'ADMIN';
+type FiltroEstado = 'todas' | EstadoVenta;
 
-  const list = useMemo(() => {
-    let out = ventas;
-    if (filtro === 'ACTIVA')    out = out.filter((v) => toUIEstado(v.estado) === 'ACTIVA');
-    if (filtro === 'ELIMINADA') out = out.filter((v) => toUIEstado(v.estado) === 'ELIMINADA');
-    return [...out].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-  }, [ventas, filtro]);
+export default function Ventas() {
+  const { openPos } = useApp();
+  const [params, setParams] = useSearchParams();
+  const ventaId = Number(params.get('venta')) || undefined;
+  const [estado, setEstado] = useState<FiltroEstado>('todas');
+  const [medio, setMedio] = useState<MedioPago | ''>('');
+  const [q, setQ] = useState('');
+  const [page, setPage] = useState(0);
+  const qd = useDebounced(q.trim(), 300);
 
-  const counts = useMemo(
-    () => ({
-      todas:     ventas.length,
-      ACTIVA:    ventas.filter((v) => toUIEstado(v.estado) === 'ACTIVA').length,
-      ELIMINADA: ventas.filter((v) => toUIEstado(v.estado) === 'ELIMINADA').length,
-    }),
-    [ventas],
-  );
+  const filtro = { q: qd, estado: estado === 'todas' ? undefined : estado, medioPago: medio || undefined, page };
+  const { data, isLoading, isError, refetch } = useVentas(filtro);
+  const list = data?.content ?? [];
 
-  const FILTROS: { id: FiltroKey; label: string }[] = [
-    { id: 'todas',     label: 'Todas' },
-    { id: 'ACTIVA',    label: 'Activas' },
-    { id: 'ELIMINADA', label: 'Eliminadas' },
-  ];
+  const abrir = (v: VentaResponse) => setParams((p) => { p.set('venta', String(v.id)); return p; });
+  const cerrar = () => setParams((p) => { p.delete('venta'); return p; });
 
   return (
-    <main className="page" style={{ paddingTop: 80 }}>
+    <main className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">Transacciones</div>
           <h1 className="page-title">Ventas</h1>
-          <p className="page-sub">
-            {counts.ACTIVA} activa{counts.ACTIVA === 1 ? '' : 's'} · {counts.ELIMINADA} eliminada{counts.ELIMINADA === 1 ? '' : 's'} en el historial.
-          </p>
+          <p className="page-sub">Buscá por número, cliente, patente u observaciones.</p>
         </div>
         <div className="page-actions">
           <button
             className="btn btn-ghost"
+            disabled={list.length === 0}
             onClick={() => exportCSV('ventas', list.map((v) => ({
-              id: v.id,
-              fecha: fmtDateTime(v.fecha),
-              total: v.total,
-              items: v.detalles.length,
-              usuario: v.usuarioNombre,
-              estado: toUIEstado(v.estado),
-              observaciones: v.observaciones ?? '',
+              id: v.id, fecha: fmtDateTime(v.fecha), total: v.total, medioPago: medioLabel(v.medioPago),
+              cliente: v.clienteNombre ?? '', patente: v.vehiculoPatente ?? '', items: v.cantidadItems,
+              usuario: v.usuarioNombre, estado: v.estado, observaciones: v.observaciones ?? '',
             })), [
-              { key: 'id', header: 'ID' },
-              { key: 'fecha', header: 'Fecha' },
-              { key: 'total', header: 'Total' },
-              { key: 'items', header: 'Items' },
-              { key: 'usuario', header: 'Usuario' },
-              { key: 'estado', header: 'Estado' },
+              { key: 'id', header: 'N°' }, { key: 'fecha', header: 'Fecha' }, { key: 'total', header: 'Total' },
+              { key: 'medioPago', header: 'Medio de pago' }, { key: 'cliente', header: 'Cliente' },
+              { key: 'patente', header: 'Patente' }, { key: 'items', header: 'Ítems' },
+              { key: 'usuario', header: 'Usuario' }, { key: 'estado', header: 'Estado' },
               { key: 'observaciones', header: 'Observaciones' },
             ])}
+            title="Exporta la página visible"
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
-              <path d="M12 3v12M6 9l6 6 6-6M5 21h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Exportar
+            <Download size={14} aria-hidden="true" /> Exportar
           </button>
-          <button className="btn btn-primary" onClick={onNuevaVenta}>
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            Nueva venta
+          <button className="btn btn-primary" onClick={openPos}>
+            <Plus size={14} strokeWidth={2} aria-hidden="true" /> Nueva venta
           </button>
         </div>
       </div>
 
       <div className="filterbar">
-        <div className="seg">
-          {FILTROS.map((opt) => (
-            <button
-              key={opt.id}
-              className={`seg-btn${filtro === opt.id ? ' is-active' : ''}`}
-              onClick={() => setFiltro(opt.id)}
-            >
-              {opt.label}
-              <span className="seg-count">{counts[opt.id]}</span>
+        <div className="filter-search">
+          <Search size={14} aria-hidden="true" />
+          <input type="search" aria-label="Buscar ventas" value={q}
+            onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="#123, cliente, patente…" />
+        </div>
+        <div className="seg" role="group" aria-label="Estado">
+          {(['todas', 'COMPLETADA', 'ANULADA'] as FiltroEstado[]).map((id) => (
+            <button key={id} aria-pressed={estado === id} className={`seg-btn${estado === id ? ' is-active' : ''}`}
+              onClick={() => { setEstado(id); setPage(0); }}>
+              {id === 'todas' ? 'Todas' : id === 'COMPLETADA' ? 'Completadas' : 'Anuladas'}
             </button>
           ))}
         </div>
+        <select className="input select" value={medio} aria-label="Medio de pago"
+          onChange={(e) => { setMedio(e.target.value as MedioPago | ''); setPage(0); }}>
+          <option value="">Todos los medios</option>
+          {MEDIOS_PAGO.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+        </select>
       </div>
 
       <div className="card no-pad">
@@ -255,32 +207,23 @@ export default function Ventas({ onNuevaVenta, user, onInfo, onError }: {
           <table className="table table-clickable">
             <thead>
               <tr>
-                <th scope="col" style={{ width: 80 }}>ID</th>
-                <th scope="col" style={{ width: 160 }}>Fecha</th>
-                <th scope="col">Observaciones</th>
-                <th scope="col" style={{ width: 70, textAlign: 'right' }}>Items</th>
-                <th scope="col" style={{ width: 140, textAlign: 'right' }}>Total</th>
-                <th scope="col" style={{ width: 140 }}>Usuario</th>
+                <th scope="col" style={{ width: 80 }}>N°</th>
+                <th scope="col" style={{ width: 140 }}>Fecha</th>
+                <th scope="col">Cliente / detalle</th>
+                <th scope="col" style={{ width: 120 }}>Pago</th>
+                <th scope="col" style={{ width: 70, textAlign: 'right' }}>Ítems</th>
+                <th scope="col" style={{ width: 130, textAlign: 'right' }}>Total</th>
                 <th scope="col" style={{ width: 130 }}>Estado</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && Array.from({ length: 8 }).map((_, i) => (
-                <tr key={i}>
-                  <td><div className="skeleton" style={{ height: 14, width: 40 }} /></td>
-                  <td><div className="skeleton" style={{ height: 14, width: 120 }} /></td>
-                  <td><div className="skeleton" style={{ height: 14, width: '70%' }} /></td>
-                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 24, marginLeft: 'auto' }} /></td>
-                  <td className="td-num"><div className="skeleton" style={{ height: 14, width: 80, marginLeft: 'auto' }} /></td>
-                  <td><div className="skeleton" style={{ height: 14, width: 100 }} /></td>
-                  <td><div className="skeleton" style={{ height: 20, width: 80 }} /></td>
-                </tr>
+                <tr key={i}><td colSpan={7}><div className="skeleton" style={{ height: 14 }} /></td></tr>
               ))}
               {isError && (
                 <tr>
                   <td colSpan={7} className="empty-state">
-                    <div className="empty-title" style={{ color: 'var(--danger)' }}>Error al cargar ventas</div>
-                    <div className="empty-sub">No se pudo conectar con el servidor.</div>
+                    <div className="empty-title" style={{ color: 'var(--danger)' }}>No se pudieron cargar las ventas</div>
                     <button className="btn btn-ghost" style={{ marginTop: 12 }} onClick={() => refetch()}>Reintentar</button>
                   </td>
                 </tr>
@@ -288,56 +231,39 @@ export default function Ventas({ onNuevaVenta, user, onInfo, onError }: {
               {!isLoading && !isError && list.length === 0 && (
                 <tr>
                   <td colSpan={7} className="empty-state">
-                    <div className="empty-title">Sin ventas en este filtro</div>
-                    <div className="empty-sub">Probá otro estado o creá una venta nueva.</div>
+                    <div className="empty-title">Sin ventas</div>
+                    <div className="empty-sub">{q || estado !== 'todas' || medio ? 'Probá con otros filtros.' : 'Registrá la primera con F2.'}</div>
                   </td>
                 </tr>
               )}
-              {!isLoading && !isError && list.map((v) => (
-                <tr
-                  key={v.id}
-                  onClick={() => setDrawer({ open: true, venta: v })}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDrawer({ open: true, venta: v }); } }}
-                >
+              {list.map((v) => (
+                <tr key={v.id} onClick={() => abrir(v)} role="button" tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(v); } }}>
                   <td className="td-id">#{v.id}</td>
-                  <td className="td-muted" style={{ fontSize: 13 }}>{fmtDateTime(v.fecha)}</td>
-                  <td>
-                    {v.observaciones
-                      ? <span className="td-product-name">{v.observaciones}</span>
-                      : <em style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: 13 }}>Sin observaciones</em>
-                    }
+                  <td className="td-muted">{fmtDateTime(v.fecha)}</td>
+                  <td className="td-wrap">
+                    {v.clienteNombre || v.vehiculoPatente ? (
+                      <div className="td-product">
+                        <span className="td-product-name">{v.clienteNombre}</span>
+                        {v.vehiculoPatente && <span className="td-product-code">{v.vehiculoPatente} {v.vehiculoDescripcion}</span>}
+                      </div>
+                    ) : (
+                      <span className="td-muted">{v.observaciones || v.detalles.map((d) => d.productoNombre).join(', ')}</span>
+                    )}
                   </td>
-                  <td className="td-num">{v.detalles.length}</td>
+                  <td>{medioLabel(v.medioPago)}</td>
+                  <td className="td-num">{v.cantidadItems}</td>
                   <td className="td-num"><strong>{fmtARS(v.total)}</strong></td>
-                  <td>
-                    <div className="td-user">
-                      <div className="avatar avatar-sm">{initials(v.usuarioNombre)}</div>
-                      <span style={{ fontSize: 13 }}>{v.usuarioNombre}</span>
-                    </div>
-                  </td>
-                  <td><EstadoChip estado={toUIEstado(v.estado)} /></td>
+                  <td><EstadoChip estado={v.estado} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {!isLoading && !isError && (
-          <div className="table-foot">
-            <span>{list.length} ventas</span>
-          </div>
-        )}
+        {data && <Pager page={data} onPage={setPage} noun="ventas" />}
       </div>
 
-      <VentaDrawer
-        open={drawer.open}
-        venta={drawer.venta}
-        onClose={() => setDrawer({ open: false, venta: null })}
-        isAdmin={isAdmin}
-        onInfo={onInfo}
-        onError={onError}
-      />
+      <VentaDrawer ventaId={ventaId} onClose={cerrar} />
     </main>
   );
 }

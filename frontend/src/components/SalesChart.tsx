@@ -4,15 +4,19 @@ import { fmtARS } from '../lib/format';
 interface SalesChartProps {
   data: number[];
   isLoading?: boolean;
+  /** Último día de `data`. Por defecto hoy. */
+  hasta?: Date;
+  /** Si se pasa, el gráfico muestra todo `data` con este título y sin selector de rango. */
+  title?: string;
 }
 
-type Range = '7d' | '30d' | '90d';
+type Range = '7d' | '30d';
 
-export default function SalesChart({ data, isLoading }: SalesChartProps) {
+export default function SalesChart({ data, isLoading, hasta, title }: SalesChartProps) {
   const [hover, setHover] = useState<number | null>(null);
   const [range, setRange] = useState<Range>('30d');
 
-  const displayData = range === '7d' ? data.slice(-7) : range === '90d' ? data : data.slice(-30);
+  const displayData = title ? data : range === '7d' ? data.slice(-7) : data.slice(-30);
 
   const w = 720, h = 240;
   const padL = 44, padR = 16, padT = 16, padB = 28;
@@ -37,16 +41,19 @@ export default function SalesChart({ data, isLoading }: SalesChartProps) {
     ? `${line} L${pts[pts.length - 1].x},${padT + innerH} L${pts[0].x},${padT + innerH} Z`
     : '';
 
-  const today = new Date();
+  const end = hasta ?? new Date();
+  const endIsToday = end.toDateString() === new Date().toDateString();
   const dateAt = (idx: number) => {
-    const d = new Date(today);
+    const d = new Date(end);
     d.setDate(d.getDate() - (displayData.length - 1 - idx));
     return d;
   };
 
-  const labelIdxs = displayData.length <= 7
-    ? [0, Math.floor(displayData.length / 2), displayData.length - 1]
-    : [0, 5, 10, 15, 20, 25, displayData.length - 1].filter((v, i, a) => a.indexOf(v) === i && v < displayData.length);
+  const n = displayData.length;
+  const step = Math.max(1, Math.ceil((n - 1) / 6));
+  const labelIdxs = n <= 7
+    ? [0, Math.floor(n / 2), n - 1]
+    : Array.from({ length: n }, (_, i) => i).filter((i) => i % step === 0 && n - 1 - i >= step / 2).concat(n - 1);
 
   const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const svg = e.currentTarget;
@@ -78,25 +85,29 @@ export default function SalesChart({ data, isLoading }: SalesChartProps) {
     <div className="card chart-card">
       <div className="card-head">
         <div>
-          <div className="card-title">Ventas · últimos {range === '7d' ? '7' : range === '90d' ? '90' : '30'} días</div>
+          <div className="card-title">{title ?? `Ventas · últimos ${range === '7d' ? '7' : '30'} días`}</div>
           <div className="card-sub">
             Total {fmtARS(total)} · promedio diario {fmtARS(Math.round(avg))}
           </div>
         </div>
-        <div className="seg">
-          {(['7d', '30d', '90d'] as Range[]).map((r) => (
-            <button
-              key={r}
-              className={`seg-btn${range === r ? ' is-active' : ''}`}
-              onClick={() => setRange(r)}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
+        {!title && (
+          <div className="seg" role="group" aria-label="Rango del gráfico">
+            {(['7d', '30d'] as Range[]).map((r) => (
+              <button
+                key={r}
+                className={`seg-btn${range === r ? ' is-active' : ''}`}
+                aria-pressed={range === r}
+                onClick={() => setRange(r)}
+              >
+                {r === '7d' ? '7 días' : '30 días'}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="chart-wrap">
+        {total === 0 && <div className="chart-empty">Sin ventas en este período</div>}
         <svg
           viewBox={`0 0 ${w} ${h}`}
           className="chart"
@@ -143,7 +154,7 @@ export default function SalesChart({ data, isLoading }: SalesChartProps) {
             const isLast = idx === displayData.length - 1;
             return (
               <text key={idx} x={p.x} y={h - 8} textAnchor="middle" className="chart-axis">
-                {isLast
+                {isLast && endIsToday
                   ? 'Hoy'
                   : `${date.getDate()} ${date.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '')}`}
               </text>

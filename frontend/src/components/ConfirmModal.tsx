@@ -22,9 +22,14 @@ export default function ConfirmModal({
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    // Captura + stopPropagation: Esc cierra solo el modal, no el drawer/overlay de abajo.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      onCancel();
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [open, onCancel]);
 
   useEffect(() => {
@@ -32,6 +37,7 @@ export default function ConfirmModal({
     const card = cardRef.current;
     if (!card) return;
     const getFocusable = () => Array.from(card.querySelectorAll<HTMLElement>(FOCUSABLE));
+    const previous = document.activeElement as HTMLElement | null;
     getFocusable()[0]?.focus();
     const trap = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
@@ -45,7 +51,10 @@ export default function ConfirmModal({
       }
     };
     document.addEventListener('keydown', trap);
-    return () => document.removeEventListener('keydown', trap);
+    return () => {
+      document.removeEventListener('keydown', trap);
+      previous?.focus();
+    };
   }, [open]);
 
   if (!open) return null;

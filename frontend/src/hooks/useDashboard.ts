@@ -1,23 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import type {
-  ProductoResponse,
-  MovimientoResponse,
-  ReporteVentasResponse,
-  VentaResponse,
-} from '../types/api';
+import { isoDate } from '../lib/format';
+import type { ProductoResponse, ReporteVentasResponse, ResumenResponse } from '../types/api';
 
 const STALE = 30_000;
 const POLL  = 30_000;
-
-const toDateParam = (d: Date): string => d.toISOString().split('T')[0];
 
 export const useStock = () =>
   useQuery<ProductoResponse[]>({
     queryKey: ['stock'],
     queryFn: () => api.get('/reportes/stock').then((r) => r.data),
     staleTime: STALE,
-    refetchInterval: POLL,
   });
 
 export const useBajoStock = () =>
@@ -28,29 +21,19 @@ export const useBajoStock = () =>
     refetchInterval: POLL,
   });
 
-export const useMovimientos = () =>
-  useQuery<MovimientoResponse[]>({
-    queryKey: ['movimientos'],
-    queryFn: () => api.get('/movimientos').then((r) => r.data),
+/** KPIs del dashboard (período actual vs. anterior) en un solo pedido. */
+export const useResumen = (dias = 30) =>
+  useQuery<ResumenResponse>({
+    queryKey: ['resumen', dias],
+    queryFn: () => api.get('/reportes/resumen', { params: { dias } }).then((r) => r.data),
     staleTime: STALE,
     refetchInterval: POLL,
   });
 
 export const useReporteVentas = (desde: Date, hasta: Date) =>
   useQuery<ReporteVentasResponse>({
-    queryKey: ['reporte-ventas', toDateParam(desde), toDateParam(hasta)],
+    queryKey: ['reporte-ventas', isoDate(desde), isoDate(hasta)],
     queryFn: () =>
-      api
-        .get(`/reportes/ventas?desde=${toDateParam(desde)}&hasta=${toDateParam(hasta)}`)
-        .then((r) => r.data),
+      api.get('/reportes/ventas', { params: { desde: isoDate(desde), hasta: isoDate(hasta) } }).then((r) => r.data),
     staleTime: STALE,
-    refetchInterval: POLL,
-  });
-
-export const useVentas = () =>
-  useQuery<VentaResponse[]>({
-    queryKey: ['ventas'],
-    queryFn: () => api.get('/ventas').then((r) => r.data),
-    staleTime: STALE,
-    refetchInterval: POLL,
   });

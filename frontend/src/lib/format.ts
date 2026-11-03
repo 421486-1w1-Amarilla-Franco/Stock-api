@@ -1,7 +1,11 @@
 export const fmtARS = (n: number): string =>
-  '$' + Math.round(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+  (n < 0 ? '−$' : '$') + Math.abs(Math.round(Number(n) || 0)).toLocaleString('es-AR', { maximumFractionDigits: 0 });
 
-export const fmtNum = (n: number): string => n.toLocaleString('es-AR');
+/** YYYY-MM-DD en hora local (toISOString usa UTC y corre el día de noche). */
+export const isoDate = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+export const fmtNum =(n: number): string => n.toLocaleString('es-AR');
 
 export const tiempoRelativo = (iso: string): string => {
   const d = new Date(iso);

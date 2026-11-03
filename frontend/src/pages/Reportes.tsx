@@ -2,14 +2,10 @@ import { useState, useMemo } from 'react';
 import { Download } from 'lucide-react';
 import { useReporteVentas, useStock } from '../hooks/useDashboard';
 import SalesChart from '../components/SalesChart';
-import { fmtARS, fmtNum } from '../lib/format';
+import { fmtARS, fmtNum, isoDate as toStr } from '../lib/format';
 import { exportCSV } from '../lib/export';
 
 type Preset = '7d' | '30d' | '90d' | 'mes';
-
-function toStr(d: Date): string {
-  return d.toISOString().split('T')[0];
-}
 
 function fromStr(s: string): Date {
   return new Date(s + 'T00:00:00');
@@ -26,7 +22,7 @@ function presetRange(p: Preset): [Date, Date] {
 }
 
 export default function Reportes() {
-  const [preset, setPreset] = useState<Preset>('30d');
+  const [preset, setPreset] = useState<Preset | null>('30d');
   const [[desde, hasta], setRange] = useState<[Date, Date]>(() => presetRange('30d'));
 
   const applyPreset = (p: Preset) => {
@@ -59,7 +55,6 @@ export default function Reportes() {
       {/* Header */}
       <div className="page-head">
         <div>
-          <div className="eyebrow">Análisis</div>
           <h1 className="page-title">Reportes</h1>
           <p className="page-sub">
             {reporte
@@ -79,7 +74,7 @@ export default function Reportes() {
                 style={{ width: 140, fontSize: 13, padding: '5px 8px' }}
                 value={toStr(desde)}
                 max={toStr(hasta)}
-                onChange={(e) => { setPreset('30d'); setRange([fromStr(e.target.value), hasta]); }}
+                onChange={(e) => { if (!e.target.value) return; setPreset(null); setRange([fromStr(e.target.value), hasta]); }}
               />
               <span style={{ color: 'var(--muted)', fontSize: 13 }}>→</span>
               <input
@@ -88,7 +83,7 @@ export default function Reportes() {
                 style={{ width: 140, fontSize: 13, padding: '5px 8px' }}
                 value={toStr(hasta)}
                 min={toStr(desde)}
-                onChange={(e) => { setPreset('30d'); setRange([desde, fromStr(e.target.value)]); }}
+                onChange={(e) => { if (!e.target.value) return; setPreset(null); setRange([desde, fromStr(e.target.value)]); }}
               />
             </div>
           </div>
@@ -142,10 +137,15 @@ export default function Reportes() {
               </div>
               <div className="kpi-card">
                 <div className="kpi-head">
-                  <div className="kpi-label">Valor de inventario</div>
+                  <div className="kpi-label">Ganancia bruta</div>
                 </div>
-                <div className="kpi-value">{fmtARS(valorInventario)}</div>
-                <div className="kpi-foot"><span className="kpi-sub">stock actual × precio venta</span></div>
+                <div className="kpi-value">{fmtARS(reporte?.margen ?? 0)}</div>
+                <div className="kpi-foot">
+                  <span className="kpi-sub">
+                    costo mercadería {fmtARS(reporte?.costoMercaderia ?? 0)}
+                    {(reporte?.manoObra ?? 0) > 0 && ` · mano de obra ${fmtARS(reporte!.manoObra)}`}
+                  </span>
+                </div>
               </div>
             </>
           )}
@@ -155,6 +155,8 @@ export default function Reportes() {
       <SalesChart
         data={reporte?.ventasDiarias ?? []}
         isLoading={loadingReporte}
+        hasta={hasta}
+        title="Ventas diarias del período"
       />
 
       {/* Top productos + Inventario actual */}
@@ -301,7 +303,7 @@ export default function Reportes() {
                         </div>
                       </td>
                       <td className="td-num">
-                        <span className={bajo ? 'is-neg' : ''}>{p.stockActual}</span>
+                        <span className={bajo ? 'text-danger' : ''}>{p.stockActual}</span>
                         <span className="stock-min"> / {p.stockMinimo}</span>
                       </td>
                       <td className="td-num td-muted">{fmtARS(Number(p.precioVenta))}</td>

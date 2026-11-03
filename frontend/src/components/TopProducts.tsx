@@ -62,9 +62,7 @@ export default function TopProducts({ productos, isLoading }: TopProductsProps) 
         ))}
 
         {items.length === 0 && (
-          <li style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '24px 0' }}>
-            Sin datos de ventas en el período
-          </li>
+          <li className="card-empty">Sin ventas en los últimos 30 días.</li>
         )}
       </ul>
     </div>
